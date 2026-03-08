@@ -472,6 +472,98 @@ const AdminPage = () => {
           </div>
         )}
 
+        {/* Spam Tab */}
+        {tab === "spam" && (
+          <div className="space-y-6">
+            {/* Add Spam Word */}
+            <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><AlertTriangle size={18} /> স্প্যাম ওয়ার্ড ম্যানেজমেন্ট</h3>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newSpamWord}
+                  onChange={e => setNewSpamWord(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addSpamWord()}
+                  placeholder="নতুন স্প্যাম ওয়ার্ড যুক্ত করুন..."
+                  className="flex-1 px-4 py-3 rounded-xl bg-secondary border border-border outline-none text-sm font-bold text-foreground focus:border-primary transition"
+                />
+                <button
+                  onClick={addSpamWord}
+                  disabled={!newSpamWord.trim()}
+                  className="px-5 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Plus size={16} /> যুক্ত
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {spamWords.map((sw: any) => (
+                  <div key={sw.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 border border-destructive/30 rounded-full text-sm font-bold text-destructive">
+                    {sw.word}
+                    <button onClick={() => removeSpamWord(sw.id)} className="hover:bg-destructive/20 rounded-full p-0.5 transition"><X size={14} /></button>
+                  </div>
+                ))}
+                {spamWords.length === 0 && <p className="text-sm text-muted-foreground">কোনো স্প্যাম ওয়ার্ড যুক্ত করা হয়নি</p>}
+              </div>
+            </div>
+
+            {/* Active Bans */}
+            <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Ban size={18} /> স্প্যাম ব্যান তালিকা</h3>
+              <div className="space-y-2">
+                {spamBans.filter((b: any) => b.violation_count > 0).map((ban: any) => {
+                  const banUser = users.find(u => u.user_id === ban.user_id);
+                  const isActive = ban.is_permanent || (ban.ban_until && new Date(ban.ban_until) > new Date());
+                  return (
+                    <div key={ban.id} className={`flex items-center justify-between p-3 rounded-xl border ${isActive ? "bg-destructive/5 border-destructive/30" : "bg-secondary border-border"}`}>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{banUser?.name || "অজানা"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          লঙ্ঘন: {ban.violation_count} বার
+                          {ban.is_permanent && " • স্থায়ী ব্যান"}
+                          {!ban.is_permanent && ban.ban_until && isActive && ` • ব্যান: ${new Date(ban.ban_until).toLocaleDateString('bn-BD')} পর্যন্ত`}
+                          {!isActive && " • মুক্ত"}
+                        </p>
+                      </div>
+                      {isActive && (
+                        <button
+                          onClick={() => liftSpamBan(ban.user_id)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 text-xs font-bold hover:bg-emerald-500/25 transition"
+                        >
+                          <Unlock size={14} className="inline mr-1" /> মুক্ত করুন
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                {spamBans.filter((b: any) => b.violation_count > 0).length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">কোনো স্প্যাম ব্যান নেই</p>
+                )}
+              </div>
+            </div>
+
+            {/* Recent Violations */}
+            <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Eye size={18} /> সাম্প্রতিক লঙ্ঘন</h3>
+              <div className="space-y-2 max-h-80 overflow-y-auto no-scrollbar">
+                {spamViolations.map((v: any) => {
+                  const vUser = users.find(u => u.user_id === v.user_id);
+                  return (
+                    <div key={v.id} className="flex items-center justify-between p-3 bg-secondary rounded-xl">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">
+                          {vUser?.name || "অজানা"} <span className="text-destructive">"{v.word_matched}"</span> ব্যবহার করেছে
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">{v.content_type === "post" ? "পোস্টে" : "কমেন্টে"} • {timeAgo(v.created_at)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {spamViolations.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">কোনো লঙ্ঘন নেই</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Logs Tab */}
         {tab === "logs" && (
           <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
