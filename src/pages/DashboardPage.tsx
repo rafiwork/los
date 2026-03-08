@@ -23,6 +23,7 @@ import MedicineCard from "@/components/dashboard/MedicineCard";
 import SettingsModal from "@/components/dashboard/SettingsModal";
 import ProfileModal from "@/components/dashboard/ProfileModal";
 import NoDataDialog from "@/components/dashboard/NoDataDialog";
+import SoundAlertManager from "@/components/dashboard/SoundAlertManager";
 
 const defaultDayData: DayData = {
   mood: '', water: 0, tasks: [], expenses: [],
@@ -140,6 +141,7 @@ const DashboardPage = () => {
       {showSettings && <SettingsModal habits={data.habits} onHabitsChange={habits => updateData({ habits })} onClose={() => setShowSettings(false)} />}
       {showProfile && profile && <ProfileModal user={profile} onClose={() => { setShowProfile(false); getProfile().then(setProfile); }} onLogout={handleLogout} />}
       <NoDataDialog open={showNoData} onOpenChange={setShowNoData} date={selectedDate} />
+      <SoundAlertManager data={data} namazTimes={namazTimes} extraSettings={extraSettings} />
     </div>
   );
 };

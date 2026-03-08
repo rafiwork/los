@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getNamazTimes, saveNamazTimes, getExtraSettings, saveExtraSettings, type Habit, type NamazTimes, type ExtraSettings } from "@/lib/dataStore";
+import { getSoundSettings, saveSoundSettings, playNotificationSound, type SoundSettings } from "@/lib/soundManager";
 
 interface Props {
   habits: Habit[];
@@ -7,9 +8,18 @@ interface Props {
   onClose: () => void;
 }
 
+const soundFeatures = [
+  { key: 'namaz' as const, label: '🕌 নামাজের সময়', desc: 'নামাজের সময় হলে সাউন্ড বাজবে' },
+  { key: 'medicine' as const, label: '💊 ওষুধ রিমাইন্ডার', desc: 'ওষুধ খাওয়ার সময় হলে সাউন্ড বাজবে' },
+  { key: 'task' as const, label: '📅 কাজের সময়', desc: 'কাজের নির্ধারিত সময়ে সাউন্ড বাজবে' },
+  { key: 'sleep' as const, label: '🛌 ঘুমের সময়', desc: 'ঘুমানোর সময় হলে সাউন্ড বাজবে' },
+  { key: 'water' as const, label: '💧 পানি পান', desc: 'প্রতি ঘণ্টায় পানি পানের রিমাইন্ডার' },
+];
+
 const SettingsModal = ({ habits, onHabitsChange, onClose }: Props) => {
   const [namazTimes, setNamazTimes] = useState<NamazTimes>({ fajr: "05:30", dhuhr: "13:30", asr: "16:45", maghrib: "18:20", isha: "20:00" });
   const [settings, setSettings] = useState<ExtraSettings>({ dailyLimit: 500, monthlyLimit: 15000, sleepTime: "22:00" });
+  const [soundSettings, setSoundSettings] = useState<SoundSettings>(getSoundSettings());
   const [newHabit, setNewHabit] = useState("");
 
   useEffect(() => {
@@ -23,9 +33,19 @@ const SettingsModal = ({ habits, onHabitsChange, onClose }: Props) => {
     setNewHabit("");
   };
 
+  const toggleSound = (key: keyof SoundSettings) => {
+    const updated = { ...soundSettings, [key]: !soundSettings[key] };
+    setSoundSettings(updated);
+    // Play preview sound when enabling
+    if (updated[key]) {
+      playNotificationSound('gentle');
+    }
+  };
+
   const saveAll = async () => {
     await saveNamazTimes(namazTimes);
     await saveExtraSettings(settings);
+    saveSoundSettings(soundSettings);
     onClose();
   };
 
@@ -37,6 +57,7 @@ const SettingsModal = ({ habits, onHabitsChange, onClose }: Props) => {
           <button onClick={onClose} className="text-muted-foreground hover:text-destructive text-2xl">✕</button>
         </div>
         <div className="space-y-6">
+          {/* Namaz Times */}
           <section>
             <h4 className="font-bold text-life-emerald border-b border-border pb-2 mb-4 text-xs uppercase tracking-widest">নামাজের সময়</h4>
             <div className="grid grid-cols-2 gap-3">
@@ -48,6 +69,8 @@ const SettingsModal = ({ habits, onHabitsChange, onClose }: Props) => {
               ))}
             </div>
           </section>
+
+          {/* Budget & Sleep */}
           <section>
             <h4 className="font-bold text-primary border-b border-border pb-2 mb-4 text-xs uppercase tracking-widest">বাজেট ও ঘুম</h4>
             <div className="grid grid-cols-2 gap-3">
@@ -56,6 +79,29 @@ const SettingsModal = ({ habits, onHabitsChange, onClose }: Props) => {
               <div className="col-span-2"><label className="text-xs font-bold text-muted-foreground">ঘুমানোর সময়</label><input type="time" value={settings.sleepTime} onChange={e => setSettings({ ...settings, sleepTime: e.target.value })} className="w-full p-2 border border-border rounded-xl font-bold bg-secondary text-foreground outline-none" /></div>
             </div>
           </section>
+
+          {/* Sound Settings */}
+          <section>
+            <h4 className="font-bold text-life-pink border-b border-border pb-2 mb-4 text-xs uppercase tracking-widest">🔊 সাউন্ড সেটিংস</h4>
+            <div className="space-y-2">
+              {soundFeatures.map(f => (
+                <div key={f.key} className="flex items-center justify-between bg-secondary p-3 rounded-xl border border-border">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">{f.label}</p>
+                    <p className="text-[10px] text-muted-foreground font-semibold">{f.desc}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleSound(f.key)}
+                    className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ml-3 ${soundSettings[f.key] ? 'bg-life-emerald' : 'bg-muted'}`}
+                  >
+                    <span className={`absolute top-0.5 w-6 h-6 bg-card rounded-full shadow transition-transform ${soundSettings[f.key] ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Habits */}
           <section>
             <h4 className="font-bold text-life-orange border-b border-border pb-2 mb-4 text-xs uppercase tracking-widest">রুটিন ম্যানেজমেন্ট</h4>
             <div className="flex gap-2 mb-4">
@@ -71,6 +117,7 @@ const SettingsModal = ({ habits, onHabitsChange, onClose }: Props) => {
               ))}
             </div>
           </section>
+
           <button onClick={saveAll} className="w-full bg-primary text-primary-foreground py-4 rounded-2xl font-black shadow-lg hover:opacity-90 transition active:scale-95">সংরক্ষণ করুন</button>
         </div>
       </div>
