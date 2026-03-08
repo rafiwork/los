@@ -7,6 +7,8 @@ interface Profile {
   user_id: string;
   name: string;
   email: string;
+  is_online?: boolean;
+  last_seen?: string | null;
 }
 
 interface Message {
@@ -32,19 +34,29 @@ const ChatPage = () => {
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // Get current user
+  // Get current user & set online
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUserId(user.id);
+      if (user) {
+        setCurrentUserId(user.id);
+        // Set online
+        supabase.from("profiles").update({ is_online: true, last_seen: new Date().toISOString() } as any).eq("user_id", user.id);
+      }
     });
+    // Set offline on unmount
+    return () => {
+      if (currentUserId) {
+        supabase.from("profiles").update({ is_online: false, last_seen: new Date().toISOString() } as any).eq("user_id", currentUserId);
+      }
+    };
   }, []);
 
   // Load all users
   useEffect(() => {
     if (!currentUserId) return;
     const loadUsers = async () => {
-      const { data } = await supabase.from("profiles").select("user_id, name, email").neq("user_id", currentUserId);
-      if (data) setUsers(data);
+      const { data } = await supabase.from("profiles").select("user_id, name, email, is_online, last_seen").neq("user_id", currentUserId);
+      if (data) setUsers(data as Profile[]);
     };
     loadUsers();
   }, [currentUserId]);
@@ -148,10 +160,15 @@ const ChatPage = () => {
             {selectedUser ? (
               <span className="flex items-center gap-2">
                 <button onClick={() => { setSelectedUser(null); setShowUserList(true); }} className="md:hidden text-muted-foreground text-sm">←</button>
-                <span
-                  className="hover:text-primary cursor-pointer transition"
-                  onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}
-                >{selectedUser.name}</span>
+                <div>
+                  <span
+                    className="hover:text-primary cursor-pointer transition"
+                    onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}
+                  >{selectedUser.name}</span>
+                  <p className={`text-[11px] font-bold ${selectedUser.is_online ? 'text-green-500' : 'text-muted-foreground'}`}>
+                    {selectedUser.is_online ? '🟢 অনলাইন' : '⚫ অফলাইন'}
+                  </p>
+                </div>
               </span>
             ) : "চ্যাট"}
           </h1>
@@ -180,15 +197,18 @@ const ChatPage = () => {
                   onClick={() => { setSelectedUser(u); setShowUserList(false); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/80 transition border-b border-border/50 ${selectedUser?.user_id === u.user_id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
                 >
-                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center text-sm font-black shrink-0">
+                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center text-sm font-black shrink-0 relative">
                     {u.name.charAt(0).toUpperCase()}
+                    {u.is_online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />}
                   </div>
                   <div className="flex-1 min-w-0 text-left">
                     <p
                       className="font-bold text-sm text-foreground truncate hover:text-primary cursor-pointer transition"
                       onClick={(e) => { e.stopPropagation(); setProfileUserId(u.user_id); setProfileOpen(true); }}
                     >{u.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {u.is_online ? <span className="text-green-500 font-bold">অনলাইন</span> : u.email}
+                    </p>
                   </div>
                   {unreadCounts[u.user_id] > 0 && (
                     <span className="w-6 h-6 bg-destructive text-destructive-foreground text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">

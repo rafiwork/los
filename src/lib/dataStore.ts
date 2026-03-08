@@ -14,6 +14,12 @@ export interface UserProfile {
   blood_group?: string;
   institution?: string;
   hobby?: string;
+  intro?: string;
+  work?: string;
+  website?: string;
+  social_link?: string;
+  hide_email?: boolean;
+  hide_mobile?: boolean;
 }
 
 export async function signUp(email: string, password: string, name: string) {
@@ -36,7 +42,7 @@ export async function getProfile(): Promise<UserProfile | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
-  return data ? { name: data.name, email: data.email, mobile: data.mobile || '', dob: data.dob || '', address: data.address || '', blood_group: data.blood_group || '', institution: data.institution || '', hobby: data.hobby || '' } : null;
+  return data ? { name: data.name, email: data.email, mobile: data.mobile || '', dob: data.dob || '', address: data.address || '', blood_group: data.blood_group || '', institution: data.institution || '', hobby: data.hobby || '', intro: (data as any).intro || '', work: (data as any).work || '', website: (data as any).website || '', social_link: (data as any).social_link || '', hide_email: !!(data as any).hide_email, hide_mobile: !!(data as any).hide_mobile } : null;
 }
 
 export async function updateProfile(profile: UserProfile) {
@@ -46,7 +52,9 @@ export async function updateProfile(profile: UserProfile) {
     name: profile.name, mobile: profile.mobile, dob: profile.dob,
     address: profile.address, blood_group: profile.blood_group,
     institution: profile.institution, hobby: profile.hobby,
-  }).eq('user_id', user.id);
+    intro: profile.intro, work: profile.work, website: profile.website,
+    social_link: profile.social_link, hide_email: profile.hide_email, hide_mobile: profile.hide_mobile,
+  } as any).eq('user_id', user.id);
 }
 
 export async function saveDayData(date: string, data: DayData) {
