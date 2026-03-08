@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   userName: string;
@@ -17,7 +18,33 @@ const NavBar = ({ userName, selectedDate, onDateChange, onLogout, onSettings, on
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingDate, setPendingDate] = useState(selectedDate);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [unreadChat, setUnreadChat] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Load unread message count
+  useEffect(() => {
+    const loadUnread = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { count } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver_id", user.id)
+        .eq("read", false);
+      setUnreadChat(count || 0);
+    };
+    loadUnread();
+
+    // Realtime listener for new messages
+    const channel = supabase
+      .channel("navbar-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
+        loadUnread();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -71,9 +98,14 @@ const NavBar = ({ userName, selectedDate, onDateChange, onLogout, onSettings, on
           {/* Chat button */}
           <button
             onClick={() => navigate('/chat')}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm"
+            className="relative w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm"
           >
             💬
+            {unreadChat > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                {unreadChat > 99 ? '99+' : unreadChat}
+              </span>
+            )}
           </button>
 
           {/* Profile */}
