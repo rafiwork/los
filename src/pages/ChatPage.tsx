@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import UserProfileDialog from "@/components/chat/UserProfileDialog";
 import { useCall } from "@/components/call/CallProvider";
 import { useIsMobile } from "@/hooks/use-mobile";
+import UserAvatar, { getAvatarColor } from "@/components/chat/UserAvatar";
 
 interface Profile {
   user_id: string;
@@ -11,6 +12,7 @@ interface Profile {
   email: string;
   is_online?: boolean;
   last_seen?: string | null;
+  avatar_url?: string | null;
 }
 
 interface Message {
@@ -30,22 +32,7 @@ interface ConversationItem {
   isMine: boolean;
 }
 
-const AVATAR_COLORS = [
-  "from-blue-500 to-cyan-400",
-  "from-violet-500 to-purple-400",
-  "from-rose-500 to-pink-400",
-  "from-amber-500 to-orange-400",
-  "from-emerald-500 to-teal-400",
-  "from-indigo-500 to-blue-400",
-  "from-fuchsia-500 to-pink-400",
-  "from-sky-500 to-cyan-400",
-];
-
-const getAvatarColor = (name: string) => {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-};
+// Avatar colors handled by UserAvatar component
 
 const ChatPage = () => {
   const navigate = useNavigate();
@@ -89,7 +76,7 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (!currentUserId) return;
-    supabase.from("profiles").select("user_id, name, email, is_online, last_seen").neq("user_id", currentUserId).then(({ data }) => {
+    supabase.from("profiles").select("user_id, name, email, is_online, last_seen, avatar_url").neq("user_id", currentUserId).then(({ data }) => {
       if (data) setUsers(data as Profile[]);
     });
   }, [currentUserId]);
@@ -240,9 +227,7 @@ const ChatPage = () => {
               {users.filter(u => u.is_online).map(u => (
                 <button key={u.user_id} onClick={() => setSelectedUser(u)} className="flex flex-col items-center gap-1 min-w-[60px] group">
                   <div className="relative">
-                    <div className={`w-[52px] h-[52px] rounded-full bg-gradient-to-br ${getAvatarColor(u.name)} flex items-center justify-center text-white text-base font-bold shadow-md group-hover:shadow-lg transition-shadow`}>
-                      {u.name.charAt(0).toUpperCase()}
-                    </div>
+                    <UserAvatar name={u.name} avatarUrl={u.avatar_url} size={52} className="shadow-md group-hover:shadow-lg transition-shadow" />
                     <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
                   </div>
                   <span className="text-[11px] text-muted-foreground group-hover:text-foreground truncate w-[60px] text-center transition-colors">{u.name.split(" ")[0]}</span>
@@ -267,9 +252,7 @@ const ChatPage = () => {
                   style={{ width: 'calc(100% - 16px)' }}
                 >
                   <div className="relative shrink-0">
-                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${getAvatarColor(conv.user.name)} flex items-center justify-center text-white text-sm font-bold shadow-sm`}>
-                      {conv.user.name.charAt(0).toUpperCase()}
-                    </div>
+                    <UserAvatar name={conv.user.name} avatarUrl={conv.user.avatar_url} size={48} />
                     {conv.user.is_online && (
                       <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
                     )}
@@ -335,12 +318,12 @@ const ChatPage = () => {
                     onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}
                     className="relative shrink-0 group"
                   >
-                    <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${getAvatarColor(selectedUser.name)} flex items-center justify-center text-white text-sm font-bold shadow-sm group-hover:shadow-md transition-shadow`}>
-                      {selectedUser.name.charAt(0).toUpperCase()}
+                    <div className="relative">
+                      <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={44} className="group-hover:shadow-md transition-shadow" />
+                      {selectedUser.is_online && (
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
+                      )}
                     </div>
-                    {selectedUser.is_online && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
-                    )}
                   </button>
                   <div
                     className="min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
@@ -384,9 +367,7 @@ const ChatPage = () => {
               <div className="flex-1 overflow-y-auto px-6 py-5 no-scrollbar bg-background">
                 {messages.length === 0 && (
                   <div className="text-center py-20">
-                    <div className={`w-24 h-24 mx-auto rounded-full bg-gradient-to-br ${getAvatarColor(selectedUser.name)} flex items-center justify-center text-white text-4xl font-bold shadow-lg mb-4`}>
-                      {selectedUser.name.charAt(0).toUpperCase()}
-                    </div>
+                    <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={96} className="mx-auto shadow-lg mb-4" />
                     <p className="font-bold text-foreground text-xl mb-1">{selectedUser.name}</p>
                     <p className="text-muted-foreground text-sm">এই কথোপকথনের শুরু</p>
                   </div>
@@ -431,9 +412,7 @@ const ChatPage = () => {
                         {!isMine && (
                           <div className="w-8 mr-2 shrink-0 self-end">
                             {isLast && (
-                              <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${getAvatarColor(selectedUser.name)} flex items-center justify-center text-white text-[10px] font-bold shadow-sm`}>
-                                {selectedUser.name.charAt(0).toUpperCase()}
-                              </div>
+                              <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={28} />
                             )}
                           </div>
                         )}
@@ -540,9 +519,7 @@ const ChatPage = () => {
               {users.filter(u => u.is_online).map(u => (
                 <button key={u.user_id} onClick={() => setSelectedUser(u)} className="flex flex-col items-center gap-1 min-w-[56px]">
                   <div className="relative">
-                    <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${getAvatarColor(u.name)} flex items-center justify-center text-white text-base font-bold shadow-md`}>
-                      {u.name.charAt(0).toUpperCase()}
-                    </div>
+                    <UserAvatar name={u.name} avatarUrl={u.avatar_url} size={56} className="shadow-md" />
                     <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
                   </div>
                   <span className="text-[11px] text-muted-foreground truncate w-14 text-center">{u.name.split(" ")[0]}</span>
@@ -556,9 +533,7 @@ const ChatPage = () => {
               <button key={conv.user.user_id} onClick={() => setSelectedUser(conv.user)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/60 transition active:bg-secondary">
                 <div className="relative shrink-0">
-                  <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${getAvatarColor(conv.user.name)} flex items-center justify-center text-white text-lg font-bold shadow-sm`}>
-                    {conv.user.name.charAt(0).toUpperCase()}
-                  </div>
+                  <UserAvatar name={conv.user.name} avatarUrl={conv.user.avatar_url} size={56} />
                   {conv.user.is_online && <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-[2.5px] border-card rounded-full" />}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
@@ -589,9 +564,7 @@ const ChatPage = () => {
             <div className="flex items-center gap-2">
               <button onClick={() => setSelectedUser(null)} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition text-lg shrink-0">←</button>
               <button onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }} className="relative shrink-0">
-                <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${getAvatarColor(selectedUser.name)} flex items-center justify-center text-white text-xs font-bold`}>
-                  {selectedUser.name.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={36} />
                 {selectedUser.is_online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-card rounded-full" />}
               </button>
               <div className="flex-1 min-w-0" onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}>
@@ -610,9 +583,7 @@ const ChatPage = () => {
           <div className="flex-1 overflow-y-auto px-3 py-4 no-scrollbar bg-background">
             {messages.length === 0 && (
               <div className="text-center py-16">
-                <div className={`w-20 h-20 mx-auto rounded-full bg-gradient-to-br ${getAvatarColor(selectedUser.name)} flex items-center justify-center text-white text-3xl font-bold shadow-lg mb-3`}>
-                  {selectedUser.name.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={80} className="mx-auto shadow-lg mb-3" />
                 <p className="font-bold text-foreground text-lg">{selectedUser.name}</p>
                 <p className="text-muted-foreground text-sm mt-1">কথোপকথন শুরু করুন</p>
               </div>
