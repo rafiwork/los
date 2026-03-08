@@ -52,7 +52,9 @@ export async function updateProfile(profile: UserProfile) {
     name: profile.name, mobile: profile.mobile, dob: profile.dob,
     address: profile.address, blood_group: profile.blood_group,
     institution: profile.institution, hobby: profile.hobby,
-  }).eq('user_id', user.id);
+    intro: profile.intro, work: profile.work, website: profile.website,
+    social_link: profile.social_link, hide_email: profile.hide_email, hide_mobile: profile.hide_mobile,
+  } as any).eq('user_id', user.id);
 }
 
 export async function saveDayData(date: string, data: DayData) {
