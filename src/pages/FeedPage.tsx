@@ -118,7 +118,7 @@ const FeedPage = () => {
     const postIds = postsData.map(p => p.id);
     const { data: likesData } = await supabase
       .from("post_likes")
-      .select("post_id, user_id")
+      .select("post_id, user_id, reaction_type")
       .in("post_id", postIds);
 
     // Get comments counts
@@ -139,13 +139,16 @@ const FeedPage = () => {
     const enriched: Post[] = postsData.map(p => {
       const postLikes = likesData?.filter(l => l.post_id === p.id) || [];
       const postComments = commentsData?.filter(c => c.post_id === p.id) || [];
+      const myReaction = postLikes.find(l => l.user_id === currentUserId);
       return {
         ...p,
         category: p.category || "general",
         profile: profiles[p.user_id],
         likes_count: postLikes.length,
         comments_count: postComments.length,
-        liked_by_me: postLikes.some(l => l.user_id === currentUserId),
+        liked_by_me: !!myReaction,
+        my_reaction: myReaction?.reaction_type || null,
+        reactions: postLikes.map(l => ({ user_id: l.user_id, reaction_type: l.reaction_type || 'like' })),
       };
     });
 
