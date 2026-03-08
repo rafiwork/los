@@ -342,20 +342,20 @@ const FeedPage = () => {
   };
 
   return (
-    <div className="bg-background min-h-screen flex flex-col">
+    <div className="bg-background min-h-screen flex flex-col overflow-x-hidden">
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border p-3 shadow-sm">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <button onClick={() => navigate("/dashboard")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-lg">←</button>
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow text-base">📰</div>
-          <h1 className="text-lg font-black text-foreground flex-1">নিউজফিড</h1>
-          <button onClick={() => navigate("/chat")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm">💬</button>
+          <button onClick={() => navigate("/dashboard")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-lg shrink-0">←</button>
+          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow text-base shrink-0">📰</div>
+          <h1 className="text-lg font-black text-foreground flex-1 truncate">নিউজফিড</h1>
+          <button onClick={() => navigate("/chat")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm shrink-0">💬</button>
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto w-full flex-1 pb-6">
+      <div className="max-w-2xl mx-auto w-full flex-1 pb-6 px-3 overflow-x-hidden">
         {/* Create Post */}
-        <div className="bg-card border border-border rounded-2xl m-3 p-4 shadow-sm">
+        <div className="bg-card border border-border rounded-2xl mt-3 mb-3 p-3 sm:p-4 shadow-sm overflow-hidden">
           <div className="flex gap-3">
             <Avatar className="w-10 h-10 shrink-0">
               <AvatarFallback className="bg-primary/10 text-primary font-black text-sm">
@@ -370,8 +370,8 @@ const FeedPage = () => {
                 className="w-full bg-secondary/50 border border-border rounded-xl p-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 resize-none transition"
                 rows={3}
               />
-              <div className="flex items-center justify-between mt-2 gap-2">
-                <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+              <div className="flex items-center justify-between mt-2 gap-2 flex-wrap sm:flex-nowrap">
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar max-w-full pb-1">
                   {CATEGORIES.map(c => (
                     <button
                       key={c.value}
@@ -399,7 +399,7 @@ const FeedPage = () => {
         </div>
 
         {/* Category Filter */}
-        <div className="px-3 mb-2 flex gap-1.5 overflow-x-auto no-scrollbar">
+        <div className="mb-2 flex gap-1.5 overflow-x-auto no-scrollbar max-w-full">
           <button
             onClick={() => setFilterCategory(null)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
@@ -430,14 +430,14 @@ const FeedPage = () => {
           </div>
         )}
 
-        <div className="space-y-3 px-3">
+        <div className="space-y-3">
           {displayPosts.map(post => {
             const profile = profiles[post.user_id];
             const isMyPost = post.user_id === currentUserId;
             const catInfo = CATEGORIES.find(c => c.value === post.category);
 
             return (
-              <div key={post.id} className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+              <div key={post.id} className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden max-w-full">
                 {/* Post Header */}
                 <div className="flex items-center gap-3 p-4 pb-2">
                   <Avatar className="w-10 h-10 shrink-0">
@@ -466,8 +466,8 @@ const FeedPage = () => {
                 </div>
 
                 {/* Post Content */}
-                <div className="px-4 pb-3">
-                  <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
+                <div className="px-3 sm:px-4 pb-3">
+                  <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed overflow-hidden">{post.content}</p>
                 </div>
 
                 {/* Reaction Stats */}
