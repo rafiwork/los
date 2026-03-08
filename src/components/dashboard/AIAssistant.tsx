@@ -23,7 +23,7 @@ const AIAssistant = ({ data, goals, email }: Props) => {
       const prayerNames: Record<string, string> = { fajr: "ফজর", dhuhr: "যোহর", asr: "আসর", maghrib: "মাগরিব", isha: "এশা" };
       const missed: string[] = [];
       for (const k in namazTimes) {
-        const [h, m] = (namazTimes as Record<string, string>)[k].split(':').map(Number);
+        const [h, m] = (namazTimes as unknown as Record<string, string>)[k].split(':').map(Number);
         if ((now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m)) && !data.namaz[k]) {
           missed.push(prayerNames[k]);
         }
