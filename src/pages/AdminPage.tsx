@@ -479,7 +479,7 @@ const AdminPage = () => {
             ) : (
               <div className="space-y-3">
                 {reports
-                  .filter(r => !search || search === "all" || r.status === search)
+                  .filter(r => !reportFilter || reportFilter === "all" || r.status === reportFilter)
                   .map((report: any) => {
                   const reporter = users.find(u => u.user_id === report.reporter_id);
                   const reported = users.find(u => u.user_id === report.reported_id);

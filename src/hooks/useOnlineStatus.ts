@@ -18,8 +18,8 @@ export function useOnlineStatus() {
         
         if (!online && navigator.sendBeacon) {
           // Use sendBeacon for offline (works on tab close)
-          navigator.sendBeacon(url, JSON.stringify({ user_id: uid, online: false }));
-          return;
+          const blob = new Blob([JSON.stringify({ user_id: uid, online: false })], { type: 'application/json' });
+          navigator.sendBeacon(url, blob);
         }
 
         await fetch(url, {
