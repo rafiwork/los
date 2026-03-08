@@ -34,14 +34,28 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const InfoRow = ({ icon, label, value }: { icon: string; label: string; value?: string | null }) => {
-  if (!value || value.trim() === "") return null;
+const InfoRow = ({
+  icon,
+  label,
+  value,
+  showWhenEmpty = false,
+}: {
+  icon: string;
+  label: string;
+  value?: string | null;
+  showWhenEmpty?: boolean;
+}) => {
+  const hasValue = !!value && value.trim() !== "";
+  if (!hasValue && !showWhenEmpty) return null;
+
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl bg-secondary/50 border border-border/50">
       <span className="text-lg shrink-0 mt-0.5">{icon}</span>
       <div className="min-w-0">
         <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">{label}</p>
-        <p className="text-sm font-semibold text-foreground break-words">{value}</p>
+        <p className={`text-sm break-words ${hasValue ? "font-semibold text-foreground" : "font-medium text-muted-foreground"}`}>
+          {hasValue ? value : "তথ্য যোগ করা হয়নি"}
+        </p>
       </div>
     </div>
   );
