@@ -731,7 +731,7 @@ const FeedPage = () => {
                   </div>
                   <div className="relative shrink-0">
                     <button
-                      onClick={() => setReportMenuPostId(reportMenuPostId === post.id ? null : post.id)}
+                      onClick={(e) => { e.stopPropagation(); setReportMenuPostId(reportMenuPostId === post.id ? null : post.id); }}
                       className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition text-lg"
                     >
                       ⋮
