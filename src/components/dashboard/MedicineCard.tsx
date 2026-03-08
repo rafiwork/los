@@ -33,7 +33,6 @@ const MedicineCard = ({ medicines, doses, onMedicinesChange, onDosesChange }: Pr
     if (!name.trim() || times.length === 0) return;
     const newMed: Medicine = { id: Date.now(), name, dose, times };
     onMedicinesChange([...medicines, newMed]);
-    // Initialize doses for today
     const newDoses = times.map(t => ({ medId: newMed.id, time: t, taken: false }));
     onDosesChange([...doses, ...newDoses]);
     setName(""); setDose(""); setTimes([]);
@@ -56,9 +55,9 @@ const MedicineCard = ({ medicines, doses, onMedicinesChange, onDosesChange }: Pr
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   const getStatus = (medTime: string, taken: boolean) => {
-    if (taken) return { label: "খাওয়া হয়েছে ✅", color: "text-life-emerald bg-life-emerald-light" };
-    if (currentTime > medTime) return { label: "মিস হয়েছে! ⚠️", color: "text-destructive bg-life-red-light" };
-    return { label: "সময় হয়নি", color: "text-muted-foreground bg-secondary" };
+    if (taken) return { label: "✅", color: "" };
+    if (currentTime > medTime) return { label: "⚠️ মিস", color: "" };
+    return { label: "⏳", color: "" };
   };
 
   return (
@@ -67,22 +66,24 @@ const MedicineCard = ({ medicines, doses, onMedicinesChange, onDosesChange }: Pr
 
       {/* Add Medicine Form */}
       <div className="space-y-2 mb-4 bg-life-pink-light p-3 rounded-xl border border-life-pink/20">
-        <div className="flex gap-2">
-          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="ওষুধের নাম..." className="flex-1 p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-foreground" />
-          <input type="text" value={dose} onChange={e => setDose(e.target.value)} placeholder="ডোজ (যেমন: ১টা)" className="w-28 p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-foreground" />
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="ওষুধের নাম..." className="w-full p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-foreground min-w-0" />
+          <input type="text" value={dose} onChange={e => setDose(e.target.value)} placeholder="ডোজ" className="w-20 p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-foreground" />
         </div>
-        <div className="flex gap-2 items-center">
-          <input type="time" value={time} onChange={e => setTime(e.target.value)} className="p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-muted-foreground" />
-          <button onClick={addTime} className="bg-life-pink/20 text-life-pink px-3 py-2.5 rounded-lg text-xs font-bold hover:bg-life-pink/30 transition">+ সময়</button>
-          <div className="flex gap-1 flex-wrap flex-1">
+        <div className="flex gap-2 items-center flex-wrap">
+          <input type="time" value={time} onChange={e => setTime(e.target.value)} className="p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-muted-foreground w-[120px]" />
+          <button onClick={addTime} className="bg-life-pink/20 text-life-pink px-3 py-2.5 rounded-lg text-xs font-bold hover:bg-life-pink/30 transition whitespace-nowrap">+ সময়</button>
+        </div>
+        {times.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap">
             {times.map(t => (
               <span key={t} className="bg-card text-foreground text-[11px] font-bold px-2 py-1 rounded-lg border border-border flex items-center gap-1">
-                {t}
-                <button onClick={() => setTimes(times.filter(x => x !== t))} className="text-destructive/50 hover:text-destructive">✕</button>
+                🕐 {t}
+                <button onClick={() => setTimes(times.filter(x => x !== t))} className="text-destructive/50 hover:text-destructive ml-0.5">✕</button>
               </span>
             ))}
           </div>
-        </div>
+        )}
         <button onClick={addMedicine} className="w-full bg-life-pink text-primary-foreground py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition active:scale-[0.98]">ওষুধ যুক্ত করুন</button>
       </div>
 
@@ -100,7 +101,7 @@ const MedicineCard = ({ medicines, doses, onMedicinesChange, onDosesChange }: Pr
                 </div>
                 <button onClick={() => setDeleteId(med.id)} className="text-destructive/40 hover:text-destructive transition text-sm opacity-0 group-hover:opacity-100 max-sm:opacity-100">🗑️</button>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {med.times.map(t => {
                   const taken = isDoseTaken(med.id, t);
                   const status = getStatus(t, taken);
@@ -108,10 +109,10 @@ const MedicineCard = ({ medicines, doses, onMedicinesChange, onDosesChange }: Pr
                     <button
                       key={t}
                       onClick={() => toggleDose(med.id, t)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition active:scale-95 ${taken ? 'border-life-emerald/30 bg-life-emerald-light text-life-emerald' : currentTime > t ? 'border-destructive/30 bg-life-red-light text-destructive animate-pulse' : 'border-border bg-card text-muted-foreground'}`}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition active:scale-95 ${taken ? 'border-life-emerald/30 bg-life-emerald-light text-life-emerald' : currentTime > t ? 'border-destructive/30 bg-life-red-light text-destructive animate-pulse' : 'border-border bg-card text-muted-foreground'}`}
                     >
                       <span>{t}</span>
-                      <span className="text-[10px]">{status.label}</span>
+                      <span>{status.label}</span>
                     </button>
                   );
                 })}
