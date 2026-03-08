@@ -84,44 +84,85 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       ringtoneRef.current = ctx;
 
       const masterGain = ctx.createGain();
-      masterGain.gain.value = 0.18;
+      masterGain.gain.value = 0.22;
       masterGain.connect(ctx.destination);
 
-      // Pleasant repeating ringtone pattern
+      // Add a subtle reverb-like effect
+      const convolver = ctx.createConvolver();
+      const reverbLen = ctx.sampleRate * 0.6;
+      const reverbBuf = ctx.createBuffer(2, reverbLen, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = reverbBuf.getChannelData(ch);
+        for (let i = 0; i < reverbLen; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / reverbLen, 2.5);
+        }
+      }
+      convolver.buffer = reverbBuf;
+
+      const dryGain = ctx.createGain();
+      dryGain.gain.value = 0.7;
+      const wetGain = ctx.createGain();
+      wetGain.gain.value = 0.3;
+      
+      dryGain.connect(masterGain);
+      convolver.connect(wetGain);
+      wetGain.connect(masterGain);
+
       const playRingCycle = () => {
         if (!ringtoneRef.current || ringtoneRef.current.state === "closed") return;
         const now = ctx.currentTime;
 
-        // Melodic pattern: C5 → E5 → G5 → E5 (arpeggio)
+        // iPhone-inspired melodic ringtone - warm & musical
         const notes = [
-          { freq: 523.25, start: 0, dur: 0.15 },
-          { freq: 659.25, start: 0.18, dur: 0.15 },
-          { freq: 783.99, start: 0.36, dur: 0.2 },
-          { freq: 659.25, start: 0.58, dur: 0.15 },
-          // Second phrase - higher
-          { freq: 783.99, start: 0.9, dur: 0.15 },
-          { freq: 987.77, start: 1.08, dur: 0.15 },
-          { freq: 1046.5, start: 1.26, dur: 0.25 },
+          // Opening phrase (ascending)
+          { freq: 659.25, start: 0, dur: 0.12, type: "sine" as OscillatorType, vol: 0.35 },      // E5
+          { freq: 783.99, start: 0.13, dur: 0.12, type: "sine" as OscillatorType, vol: 0.35 },    // G5
+          { freq: 880.00, start: 0.26, dur: 0.18, type: "sine" as OscillatorType, vol: 0.4 },     // A5
+          { freq: 1046.5, start: 0.46, dur: 0.22, type: "sine" as OscillatorType, vol: 0.35 },    // C6
+          // Pause, then descending
+          { freq: 880.00, start: 0.82, dur: 0.12, type: "sine" as OscillatorType, vol: 0.3 },     // A5
+          { freq: 783.99, start: 0.95, dur: 0.12, type: "sine" as OscillatorType, vol: 0.3 },     // G5
+          { freq: 659.25, start: 1.08, dur: 0.18, type: "sine" as OscillatorType, vol: 0.35 },    // E5
+          // Ending flourish
+          { freq: 783.99, start: 1.35, dur: 0.14, type: "sine" as OscillatorType, vol: 0.3 },     // G5
+          { freq: 1046.5, start: 1.50, dur: 0.14, type: "sine" as OscillatorType, vol: 0.35 },    // C6
+          { freq: 1174.7, start: 1.65, dur: 0.30, type: "sine" as OscillatorType, vol: 0.3 },     // D6 (resolve)
         ];
 
-        notes.forEach(({ freq, start, dur }) => {
+        notes.forEach(({ freq, start, dur, type, vol }) => {
+          // Main tone
           const osc = ctx.createOscillator();
           const noteGain = ctx.createGain();
-          osc.type = "sine";
+          osc.type = type;
           osc.frequency.setValueAtTime(freq, now + start);
           noteGain.gain.setValueAtTime(0, now + start);
-          noteGain.gain.linearRampToValueAtTime(0.3, now + start + 0.03);
-          noteGain.gain.setValueAtTime(0.3, now + start + dur * 0.6);
-          noteGain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+          noteGain.gain.linearRampToValueAtTime(vol, now + start + 0.02);
+          noteGain.gain.setValueAtTime(vol * 0.9, now + start + dur * 0.5);
+          noteGain.gain.exponentialRampToValueAtTime(0.001, now + start + dur + 0.08);
           osc.connect(noteGain);
-          noteGain.connect(masterGain);
+          noteGain.connect(dryGain);
+          noteGain.connect(convolver);
           osc.start(now + start);
-          osc.stop(now + start + dur);
+          osc.stop(now + start + dur + 0.1);
           ringtoneOscRef.current.push(osc);
+
+          // Soft harmonic overtone (octave up, quieter)
+          const osc2 = ctx.createOscillator();
+          const noteGain2 = ctx.createGain();
+          osc2.type = "sine";
+          osc2.frequency.setValueAtTime(freq * 2, now + start);
+          noteGain2.gain.setValueAtTime(0, now + start);
+          noteGain2.gain.linearRampToValueAtTime(vol * 0.12, now + start + 0.03);
+          noteGain2.gain.exponentialRampToValueAtTime(0.001, now + start + dur * 0.7);
+          osc2.connect(noteGain2);
+          noteGain2.connect(dryGain);
+          osc2.start(now + start);
+          osc2.stop(now + start + dur + 0.1);
+          ringtoneOscRef.current.push(osc2);
         });
 
-        // Repeat every 2.5 seconds
-        ringtoneTimerRef.current = window.setTimeout(playRingCycle, 2500);
+        // Repeat every 2.8 seconds
+        ringtoneTimerRef.current = window.setTimeout(playRingCycle, 2800);
       };
 
       playRingCycle();
