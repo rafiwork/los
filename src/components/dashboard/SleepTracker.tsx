@@ -1,3 +1,5 @@
+import TimeInput from "@/components/ui/time-input";
+
 interface Props {
   sleepStart: string;
   sleepEnd: string;
@@ -26,11 +28,11 @@ const SleepTracker = ({ sleepStart, sleepEnd, sleepHours, onUpdate }: Props) => 
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="text-[10px] font-bold text-muted-foreground uppercase">ঘুমানোর সময়</label>
-          <input type="time" value={sleepStart} onChange={e => handleChange('start', e.target.value)} className="w-full p-2 mt-1 rounded-xl bg-secondary border border-border outline-none font-bold text-sm text-foreground focus:border-life-indigo transition" />
+          <TimeInput value={sleepStart} onChange={v => handleChange('start', v)} placeholder="২২:০০" className="w-full p-2 mt-1 rounded-xl bg-secondary border border-border outline-none font-bold text-sm text-foreground focus:border-life-indigo transition" />
         </div>
         <div>
           <label className="text-[10px] font-bold text-muted-foreground uppercase">ওঠার সময়</label>
-          <input type="time" value={sleepEnd} onChange={e => handleChange('end', e.target.value)} className="w-full p-2 mt-1 rounded-xl bg-secondary border border-border outline-none font-bold text-sm text-foreground focus:border-life-indigo transition" />
+          <TimeInput value={sleepEnd} onChange={v => handleChange('end', v)} placeholder="০৬:০০" className="w-full p-2 mt-1 rounded-xl bg-secondary border border-border outline-none font-bold text-sm text-foreground focus:border-life-indigo transition" />
         </div>
       </div>
       <div className="bg-life-indigo-light border border-life-indigo/20 p-3 rounded-xl flex items-center justify-between">

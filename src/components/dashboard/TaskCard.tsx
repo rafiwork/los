@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { Task } from "@/lib/dataStore";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
+import TimeInput from "@/components/ui/time-input";
 
 interface Props {
   tasks: Task[];
@@ -48,7 +49,7 @@ const TaskCard = ({ tasks, onTasksChange }: Props) => {
       <div className="flex flex-wrap gap-2 mb-4">
         <input type="text" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTask()} placeholder="কি কি করবেন?" className="flex-1 min-w-0 p-3 rounded-xl bg-secondary border border-border outline-none text-sm font-bold text-foreground focus:border-primary transition" />
         <div className="flex gap-2 shrink-0">
-          <input type="time" value={time} onChange={e => setTime(e.target.value)} placeholder="সময়" className="p-3 w-28 rounded-xl bg-secondary border border-border outline-none text-sm font-bold text-foreground" />
+          <TimeInput value={time} onChange={setTime} placeholder="HH:MM" className="p-3 w-28 rounded-xl bg-secondary border border-border outline-none text-sm font-bold text-foreground" />
           <button onClick={addTask} className="bg-life-green text-primary-foreground px-4 rounded-xl font-bold hover:opacity-90 transition active:scale-95 whitespace-nowrap">যোগ</button>
         </div>
       </div>
