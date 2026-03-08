@@ -51,6 +51,8 @@ const DashboardPage = () => {
       setData(saved || defaultDayData);
       setGoalsState(await getGoals());
       setPermNotesState(await getPermNotes());
+      setNamazTimes(await getNamazTimes());
+      setExtraSettings(await getExtraSettings());
       setLoading(false);
     };
     load();
