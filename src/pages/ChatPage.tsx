@@ -850,7 +850,7 @@ const ChatPage = () => {
               <div className="flex items-center gap-1.5">
                 <button onClick={() => navigate("/feed")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base" title="নিউজফিড">📰</button>
                 <button onClick={() => setShowCreateGroup(true)} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base" title="গ্রুপ তৈরি">👥</button>
-                <button className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base">✏️</button>
+                <button onClick={() => { setChatMode("dm"); setSelectedUser(null); setSelectedGroup(null); setSearch(""); }} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base" title="নতুন মেসেজ">✏️</button>
               </div>
             </div>
             <div className="relative">
