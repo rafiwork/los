@@ -201,7 +201,9 @@ const ChatPage = () => {
                       className="font-bold text-sm text-foreground truncate hover:text-primary cursor-pointer transition"
                       onClick={(e) => { e.stopPropagation(); setProfileUserId(u.user_id); setProfileOpen(true); }}
                     >{u.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {u.is_online ? <span className="text-green-500 font-bold">অনলাইন</span> : u.email}
+                    </p>
                   </div>
                   {unreadCounts[u.user_id] > 0 && (
                     <span className="w-6 h-6 bg-destructive text-destructive-foreground text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
