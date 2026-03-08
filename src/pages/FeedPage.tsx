@@ -1,0 +1,598 @@
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { formatDistanceToNow } from "date-fns";
+import { bn } from "date-fns/locale";
+
+interface PostProfile {
+  name: string;
+  user_id: string;
+  is_online?: boolean;
+}
+
+interface Comment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  parent_id: string | null;
+  created_at: string;
+  profile?: PostProfile;
+  likes_count: number;
+  liked_by_me: boolean;
+  replies?: Comment[];
+}
+
+interface Post {
+  id: string;
+  user_id: string;
+  content: string;
+  category: string;
+  created_at: string;
+  profile?: PostProfile;
+  likes_count: number;
+  comments_count: number;
+  liked_by_me: boolean;
+}
+
+const CATEGORIES = [
+  { value: "general", label: "সাধারণ", emoji: "📝" },
+  { value: "tech", label: "প্রযুক্তি", emoji: "💻" },
+  { value: "life", label: "জীবন", emoji: "🌱" },
+  { value: "funny", label: "মজার", emoji: "😂" },
+  { value: "news", label: "খবর", emoji: "📰" },
+  { value: "islamic", label: "ইসলামিক", emoji: "🕌" },
+  { value: "education", label: "শিক্ষা", emoji: "📚" },
+  { value: "health", label: "স্বাস্থ্য", emoji: "💪" },
+];
+
+const FeedPage = () => {
+  const navigate = useNavigate();
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [newPostContent, setNewPostContent] = useState("");
+  const [newPostCategory, setNewPostCategory] = useState("general");
+  const [posting, setPosting] = useState(false);
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [comments, setComments] = useState<Record<string, Comment[]>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [replyingTo, setReplyingTo] = useState<{ commentId: string; postId: string; name: string } | null>(null);
+  const [replyInput, setReplyInput] = useState("");
+  const [profiles, setProfiles] = useState<Record<string, PostProfile>>({});
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const replyInputRef = useRef<HTMLInputElement>(null);
+
+  // Init
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
+
+  // Load profiles
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("profiles").select("user_id, name, is_online");
+      if (data) {
+        const map: Record<string, PostProfile> = {};
+        data.forEach(p => { map[p.user_id] = p as PostProfile; });
+        setProfiles(map);
+      }
+    };
+    load();
+  }, []);
+
+  // Load posts
+  const loadPosts = useCallback(async () => {
+    if (!currentUserId) return;
+
+    const { data: postsData } = await supabase
+      .from("posts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (!postsData) return;
+
+    // Get likes counts
+    const postIds = postsData.map(p => p.id);
+    const { data: likesData } = await supabase
+      .from("post_likes")
+      .select("post_id, user_id")
+      .in("post_id", postIds);
+
+    // Get comments counts
+    const { data: commentsData } = await supabase
+      .from("post_comments")
+      .select("post_id")
+      .in("post_id", postIds);
+
+    // Get user interests for sorting
+    const { data: interests } = await supabase
+      .from("user_interests")
+      .select("category, score")
+      .eq("user_id", currentUserId);
+
+    const interestMap: Record<string, number> = {};
+    interests?.forEach(i => { interestMap[i.category] = i.score; });
+
+    const enriched: Post[] = postsData.map(p => {
+      const postLikes = likesData?.filter(l => l.post_id === p.id) || [];
+      const postComments = commentsData?.filter(c => c.post_id === p.id) || [];
+      return {
+        ...p,
+        category: p.category || "general",
+        profile: profiles[p.user_id],
+        likes_count: postLikes.length,
+        comments_count: postComments.length,
+        liked_by_me: postLikes.some(l => l.user_id === currentUserId),
+      };
+    });
+
+    // Algorithm: sort by interest score + engagement + recency
+    enriched.sort((a, b) => {
+      const aInterest = interestMap[a.category] || 0;
+      const bInterest = interestMap[b.category] || 0;
+      const aEngagement = a.likes_count * 2 + a.comments_count * 3;
+      const bEngagement = b.likes_count * 2 + b.comments_count * 3;
+      const aAge = (Date.now() - new Date(a.created_at).getTime()) / 3600000; // hours
+      const bAge = (Date.now() - new Date(b.created_at).getTime()) / 3600000;
+      const aScore = (aInterest * 10) + aEngagement - (aAge * 0.5);
+      const bScore = (bInterest * 10) + bEngagement - (bAge * 0.5);
+      return bScore - aScore;
+    });
+
+    setPosts(enriched);
+  }, [currentUserId, profiles]);
+
+  useEffect(() => { loadPosts(); }, [loadPosts]);
+
+  // Realtime
+  useEffect(() => {
+    if (!currentUserId) return;
+    const channel = supabase
+      .channel("feed-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => loadPosts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => loadPosts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, (payload) => {
+        loadPosts();
+        if (payload.eventType === "INSERT") {
+          const c = payload.new as any;
+          if (expandedComments.has(c.post_id)) {
+            loadComments(c.post_id);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUserId, loadPosts, expandedComments]);
+
+  // Track interest
+  const trackInterest = async (category: string) => {
+    if (!currentUserId) return;
+    const { data } = await supabase
+      .from("user_interests")
+      .select("score")
+      .eq("user_id", currentUserId)
+      .eq("category", category)
+      .single();
+
+    if (data) {
+      await supabase
+        .from("user_interests")
+        .update({ score: data.score + 1, updated_at: new Date().toISOString() })
+        .eq("user_id", currentUserId)
+        .eq("category", category);
+    } else {
+      await supabase
+        .from("user_interests")
+        .insert({ user_id: currentUserId, category, score: 1 });
+    }
+  };
+
+  // Create post
+  const createPost = async () => {
+    if (!newPostContent.trim() || !currentUserId) return;
+    setPosting(true);
+    await supabase.from("posts").insert({
+      user_id: currentUserId,
+      content: newPostContent.trim(),
+      category: newPostCategory,
+    });
+    trackInterest(newPostCategory);
+    setNewPostContent("");
+    setPosting(false);
+  };
+
+  // Like/unlike post
+  const toggleLike = async (post: Post) => {
+    if (post.liked_by_me) {
+      await supabase.from("post_likes").delete().eq("post_id", post.id).eq("user_id", currentUserId);
+    } else {
+      await supabase.from("post_likes").insert({ post_id: post.id, user_id: currentUserId });
+      trackInterest(post.category);
+    }
+  };
+
+  // Load comments
+  const loadComments = async (postId: string) => {
+    const { data } = await supabase
+      .from("post_comments")
+      .select("*")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+
+    if (!data) return;
+
+    // Get comment likes
+    const commentIds = data.map(c => c.id);
+    const { data: cLikes } = await supabase
+      .from("comment_likes")
+      .select("comment_id, user_id")
+      .in("comment_id", commentIds);
+
+    const enriched: Comment[] = data.map(c => ({
+      ...c,
+      profile: profiles[c.user_id],
+      likes_count: cLikes?.filter(l => l.comment_id === c.id).length || 0,
+      liked_by_me: cLikes?.some(l => l.comment_id === c.id && l.user_id === currentUserId) || false,
+    }));
+
+    // Nest replies
+    const topLevel = enriched.filter(c => !c.parent_id);
+    const replies = enriched.filter(c => c.parent_id);
+    topLevel.forEach(c => {
+      c.replies = replies.filter(r => r.parent_id === c.id);
+    });
+
+    setComments(prev => ({ ...prev, [postId]: topLevel }));
+  };
+
+  // Toggle comments
+  const toggleComments = (postId: string) => {
+    const next = new Set(expandedComments);
+    if (next.has(postId)) {
+      next.delete(postId);
+    } else {
+      next.add(postId);
+      loadComments(postId);
+    }
+    setExpandedComments(next);
+  };
+
+  // Add comment
+  const addComment = async (postId: string) => {
+    const text = commentInputs[postId]?.trim();
+    if (!text || !currentUserId) return;
+    await supabase.from("post_comments").insert({
+      post_id: postId,
+      user_id: currentUserId,
+      content: text,
+    });
+    setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+    trackInterest(posts.find(p => p.id === postId)?.category || "general");
+  };
+
+  // Add reply
+  const addReply = async () => {
+    if (!replyInput.trim() || !replyingTo || !currentUserId) return;
+    await supabase.from("post_comments").insert({
+      post_id: replyingTo.postId,
+      user_id: currentUserId,
+      content: replyInput.trim(),
+      parent_id: replyingTo.commentId,
+    });
+    setReplyInput("");
+    setReplyingTo(null);
+  };
+
+  // Like comment
+  const toggleCommentLike = async (comment: Comment) => {
+    if (comment.liked_by_me) {
+      await supabase.from("comment_likes").delete().eq("comment_id", comment.id).eq("user_id", currentUserId);
+    } else {
+      await supabase.from("comment_likes").insert({ comment_id: comment.id, user_id: currentUserId });
+    }
+    loadComments(comment.post_id);
+  };
+
+  // Delete post
+  const deletePost = async (postId: string) => {
+    await supabase.from("posts").delete().eq("id", postId);
+  };
+
+  const displayPosts = filterCategory ? posts.filter(p => p.category === filterCategory) : posts;
+
+  const timeAgo = (date: string) => {
+    try {
+      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: bn });
+    } catch {
+      return "";
+    }
+  };
+
+  return (
+    <div className="bg-background min-h-screen flex flex-col">
+      {/* Header */}
+      <nav className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border p-3 shadow-sm">
+        <div className="max-w-2xl mx-auto flex items-center gap-3">
+          <button onClick={() => navigate("/dashboard")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-lg">←</button>
+          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow text-base">📰</div>
+          <h1 className="text-lg font-black text-foreground flex-1">নিউজফিড</h1>
+          <button onClick={() => navigate("/chat")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm">💬</button>
+        </div>
+      </nav>
+
+      <div className="max-w-2xl mx-auto w-full flex-1 pb-6">
+        {/* Create Post */}
+        <div className="bg-card border border-border rounded-2xl m-3 p-4 shadow-sm">
+          <div className="flex gap-3">
+            <Avatar className="w-10 h-10 shrink-0">
+              <AvatarFallback className="bg-primary/10 text-primary font-black text-sm">
+                {profiles[currentUserId]?.name?.charAt(0) || "?"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <textarea
+                value={newPostContent}
+                onChange={e => setNewPostContent(e.target.value)}
+                placeholder="আপনার মনে কী আছে...?"
+                className="w-full bg-secondary/50 border border-border rounded-xl p-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 resize-none transition"
+                rows={3}
+              />
+              <div className="flex items-center justify-between mt-2 gap-2">
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+                  {CATEGORIES.map(c => (
+                    <button
+                      key={c.value}
+                      onClick={() => setNewPostCategory(c.value)}
+                      className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
+                        newPostCategory === c.value
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-muted-foreground border-border hover:border-primary"
+                      }`}
+                    >
+                      {c.emoji} {c.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={createPost}
+                  disabled={!newPostContent.trim() || posting}
+                  className="shrink-0 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-xs font-black hover:opacity-90 transition active:scale-95 disabled:opacity-50"
+                >
+                  {posting ? "..." : "পোস্ট"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Category Filter */}
+        <div className="px-3 mb-2 flex gap-1.5 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setFilterCategory(null)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
+              !filterCategory ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary"
+            }`}
+          >
+            🔥 সব
+          </button>
+          {CATEGORIES.map(c => (
+            <button
+              key={c.value}
+              onClick={() => setFilterCategory(filterCategory === c.value ? null : c.value)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
+                filterCategory === c.value ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary"
+              }`}
+            >
+              {c.emoji} {c.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Posts */}
+        {displayPosts.length === 0 && (
+          <div className="text-center py-16">
+            <div className="text-5xl mb-3">📭</div>
+            <p className="text-muted-foreground font-bold">কোনো পোস্ট নেই</p>
+            <p className="text-muted-foreground text-sm mt-1">প্রথম পোস্ট করুন!</p>
+          </div>
+        )}
+
+        <div className="space-y-3 px-3">
+          {displayPosts.map(post => {
+            const profile = profiles[post.user_id];
+            const isMyPost = post.user_id === currentUserId;
+            const catInfo = CATEGORIES.find(c => c.value === post.category);
+
+            return (
+              <div key={post.id} className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                {/* Post Header */}
+                <div className="flex items-center gap-3 p-4 pb-2">
+                  <Avatar className="w-10 h-10 shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-primary font-black text-sm">
+                      {profile?.name?.charAt(0) || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm text-foreground truncate">{profile?.name || "অজানা"}</p>
+                      {profile?.is_online && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0" />}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</p>
+                      {catInfo && <span className="text-[10px] px-1.5 py-0.5 bg-secondary rounded-full text-muted-foreground font-bold">{catInfo.emoji} {catInfo.label}</span>}
+                    </div>
+                  </div>
+                  {isMyPost && (
+                    <button
+                      onClick={() => deletePost(post.id)}
+                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition text-sm"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </div>
+
+                {/* Post Content */}
+                <div className="px-4 pb-3">
+                  <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
+                </div>
+
+                {/* Stats */}
+                {(post.likes_count > 0 || post.comments_count > 0) && (
+                  <div className="px-4 pb-2 flex items-center gap-4 text-[11px] text-muted-foreground">
+                    {post.likes_count > 0 && <span>❤️ {post.likes_count}</span>}
+                    {post.comments_count > 0 && (
+                      <button onClick={() => toggleComments(post.id)} className="hover:text-primary transition">
+                        💬 {post.comments_count}টি মন্তব্য
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="border-t border-border flex">
+                  <button
+                    onClick={() => toggleLike(post)}
+                    className={`flex-1 py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 transition hover:bg-secondary/50 ${
+                      post.liked_by_me ? "text-red-500" : "text-muted-foreground"
+                    }`}
+                  >
+                    {post.liked_by_me ? "❤️" : "🤍"} লাইক
+                  </button>
+                  <button
+                    onClick={() => toggleComments(post.id)}
+                    className="flex-1 py-2.5 text-sm font-bold text-muted-foreground flex items-center justify-center gap-1.5 transition hover:bg-secondary/50 border-l border-border"
+                  >
+                    💬 মন্তব্য
+                  </button>
+                </div>
+
+                {/* Comments Section */}
+                {expandedComments.has(post.id) && (
+                  <div className="border-t border-border bg-secondary/20">
+                    {/* Comment list */}
+                    <div className="max-h-80 overflow-y-auto px-4 py-3 space-y-3">
+                      {(!comments[post.id] || comments[post.id].length === 0) && (
+                        <p className="text-center text-muted-foreground text-xs py-2">কোনো মন্তব্য নেই</p>
+                      )}
+                      {comments[post.id]?.map(comment => (
+                        <div key={comment.id}>
+                          {/* Comment */}
+                          <div className="flex gap-2">
+                            <Avatar className="w-7 h-7 shrink-0 mt-0.5">
+                              <AvatarFallback className="bg-primary/10 text-primary font-black text-[10px]">
+                                {profiles[comment.user_id]?.name?.charAt(0) || "?"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="bg-card border border-border rounded-xl px-3 py-2">
+                                <p className="text-[11px] font-black text-foreground">{profiles[comment.user_id]?.name || "অজানা"}</p>
+                                <p className="text-xs text-foreground font-semibold mt-0.5 break-words">{comment.content}</p>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 px-1">
+                                <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
+                                <button
+                                  onClick={() => toggleCommentLike(comment)}
+                                  className={`text-[10px] font-bold transition ${comment.liked_by_me ? "text-red-500" : "text-muted-foreground hover:text-red-500"}`}
+                                >
+                                  {comment.liked_by_me ? "❤️" : "লাইক"} {comment.likes_count > 0 && `(${comment.likes_count})`}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setReplyingTo({ commentId: comment.id, postId: post.id, name: profiles[comment.user_id]?.name || "অজানা" });
+                                    setTimeout(() => replyInputRef.current?.focus(), 100);
+                                  }}
+                                  className="text-[10px] font-bold text-muted-foreground hover:text-primary transition"
+                                >
+                                  রিপ্লাই
+                                </button>
+                              </div>
+
+                              {/* Replies */}
+                              {comment.replies && comment.replies.length > 0 && (
+                                <div className="mt-2 ml-2 space-y-2 border-l-2 border-border pl-2">
+                                  {comment.replies.map(reply => (
+                                    <div key={reply.id} className="flex gap-2">
+                                      <Avatar className="w-6 h-6 shrink-0 mt-0.5">
+                                        <AvatarFallback className="bg-primary/10 text-primary font-black text-[9px]">
+                                          {profiles[reply.user_id]?.name?.charAt(0) || "?"}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="bg-card border border-border rounded-lg px-2.5 py-1.5">
+                                          <p className="text-[10px] font-black text-foreground">{profiles[reply.user_id]?.name || "অজানা"}</p>
+                                          <p className="text-[11px] text-foreground font-semibold break-words">{reply.content}</p>
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-0.5 px-1">
+                                          <span className="text-[9px] text-muted-foreground">{timeAgo(reply.created_at)}</span>
+                                          <button
+                                            onClick={() => toggleCommentLike(reply)}
+                                            className={`text-[9px] font-bold transition ${reply.liked_by_me ? "text-red-500" : "text-muted-foreground hover:text-red-500"}`}
+                                          >
+                                            {reply.liked_by_me ? "❤️" : "লাইক"} {reply.likes_count > 0 && `(${reply.likes_count})`}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Reply indicator */}
+                    {replyingTo && replyingTo.postId === post.id && (
+                      <div className="px-4 py-1 bg-primary/5 border-t border-border flex items-center gap-2">
+                        <span className="text-[10px] text-primary font-bold">↩ {replyingTo.name} কে রিপ্লাই</span>
+                        <button onClick={() => setReplyingTo(null)} className="text-muted-foreground text-xs hover:text-destructive">✕</button>
+                      </div>
+                    )}
+
+                    {/* Comment/Reply input */}
+                    <div className="px-4 py-3 border-t border-border flex gap-2">
+                      {replyingTo && replyingTo.postId === post.id ? (
+                        <>
+                          <input
+                            ref={replyInputRef}
+                            value={replyInput}
+                            onChange={e => setReplyInput(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && addReply()}
+                            placeholder={`${replyingTo.name} কে রিপ্লাই...`}
+                            className="flex-1 px-3 py-2 rounded-xl bg-secondary border border-border text-xs font-bold text-foreground outline-none focus:border-primary transition"
+                          />
+                          <button onClick={addReply} disabled={!replyInput.trim()} className="bg-primary text-primary-foreground px-3 py-2 rounded-xl text-xs font-bold hover:opacity-90 disabled:opacity-50 transition">↩</button>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            value={commentInputs[post.id] || ""}
+                            onChange={e => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && addComment(post.id)}
+                            placeholder="মন্তব্য লিখুন..."
+                            className="flex-1 px-3 py-2 rounded-xl bg-secondary border border-border text-xs font-bold text-foreground outline-none focus:border-primary transition"
+                          />
+                          <button onClick={() => addComment(post.id)} disabled={!commentInputs[post.id]?.trim()} className="bg-primary text-primary-foreground px-3 py-2 rounded-xl text-xs font-bold hover:opacity-90 disabled:opacity-50 transition">→</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FeedPage;
