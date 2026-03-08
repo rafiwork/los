@@ -9,8 +9,8 @@ interface Props {
   selectedDate: string;
   onDateChange: (date: string) => void;
   onLogout: () => void;
-  onSettings: () => void;
-  onProfile: () => void;
+  onSettings?: () => void;
+  onProfile?: () => void;
   notificationSlot?: ReactNode;
 }
 
