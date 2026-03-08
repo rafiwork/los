@@ -127,6 +127,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const stopRingtone = useCallback(() => {
+    if (ringtoneTimerRef.current) { clearTimeout(ringtoneTimerRef.current); ringtoneTimerRef.current = null; }
     ringtoneOscRef.current.forEach(o => { try { o.stop(); } catch {} });
     ringtoneOscRef.current = [];
     if (ringtoneRef.current) { try { ringtoneRef.current.close(); } catch {} ringtoneRef.current = null; }
