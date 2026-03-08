@@ -685,10 +685,14 @@ const FeedPage = () => {
 
                 {/* Actions */}
                 <div className="border-t border-border flex relative">
-                  <div className="flex-1 relative">
+                  <div
+                    className="flex-1 relative"
+                    onMouseEnter={() => !post.liked_by_me && setShowReactionPicker(post.id)}
+                    onMouseLeave={() => setTimeout(() => setShowReactionPicker(prev => prev === post.id ? null : prev), 500)}
+                  >
                     {/* Reaction Picker */}
                     {showReactionPicker === post.id && (
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-card border border-border rounded-2xl shadow-lg px-2 py-1.5 flex gap-1 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-2xl shadow-lg px-2 py-1.5 flex gap-1 z-50 animate-in fade-in zoom-in-95 duration-150">
                         {REACTIONS.map(r => (
                           <button
                             key={r.type}
@@ -702,9 +706,7 @@ const FeedPage = () => {
                       </div>
                     )}
                     <button
-                      onClick={() => post.liked_by_me ? reactToPost(post, post.my_reaction!) : setShowReactionPicker(showReactionPicker === post.id ? null : post.id)}
-                      onMouseEnter={() => !post.liked_by_me && setShowReactionPicker(post.id)}
-                      onMouseLeave={() => setTimeout(() => setShowReactionPicker(prev => prev === post.id ? null : prev), 800)}
+                      onClick={() => post.liked_by_me ? reactToPost(post, post.my_reaction!) : reactToPost(post, 'like')}
                       className={`w-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 transition hover:bg-secondary/50 ${
                         post.liked_by_me ? "text-primary" : "text-muted-foreground"
                       }`}
