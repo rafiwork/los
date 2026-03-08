@@ -26,6 +26,7 @@ import DailySummary from "@/components/dashboard/DailySummary";
 import ProfileModal from "@/components/dashboard/ProfileModal";
 import NoDataDialog from "@/components/dashboard/NoDataDialog";
 import SoundAlertManager from "@/components/dashboard/SoundAlertManager";
+import NewDayDialog from "@/components/dashboard/NewDayDialog";
 
 const defaultDayData: DayData = {
   mood: '', water: 0, tasks: [], expenses: [],
@@ -46,22 +47,24 @@ const DashboardPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showNoData, setShowNoData] = useState(false);
+  const [showNewDay, setShowNewDay] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const isToday = selectedDate === getTodayStr();
 
-  // Auto-switch to new day at midnight
+  // Auto-switch to new day at midnight with greeting
   useEffect(() => {
     const checkDateChange = () => {
       const today = getTodayStr();
-      if (selectedDate !== today && selectedDate === prevDateRef.current) {
+      if (today !== prevDateRef.current) {
+        prevDateRef.current = today;
         setSelectedDate(today);
+        setShowNewDay(true);
       }
-      prevDateRef.current = today;
     };
-    const interval = setInterval(checkDateChange, 10000); // check every 10s
+    const interval = setInterval(checkDateChange, 5000);
     return () => clearInterval(interval);
-  }, [selectedDate]);
+  }, []);
 
   const prevDateRef = useRef(getTodayStr());
 
@@ -160,6 +163,7 @@ const DashboardPage = () => {
       {showSettings && <SettingsModal habits={data.habits} onHabitsChange={habits => updateData({ habits })} onClose={() => setShowSettings(false)} />}
       {showProfile && profile && <ProfileModal user={profile} onClose={() => { setShowProfile(false); getProfile().then(setProfile); }} onLogout={handleLogout} />}
       <NoDataDialog open={showNoData} onOpenChange={setShowNoData} date={selectedDate} />
+      <NewDayDialog open={showNewDay} onClose={() => setShowNewDay(false)} userName={profile?.name || 'User'} />
       <SoundAlertManager data={data} namazTimes={namazTimes} extraSettings={extraSettings} />
     </div>
   );
