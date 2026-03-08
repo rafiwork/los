@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import DeleteConfirmDialog from "@/components/dashboard/DeleteConfirmDialog";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -397,8 +398,10 @@ const FeedPage = () => {
   };
 
   // Delete post
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const deletePost = async (postId: string) => {
     await supabase.from("posts").delete().eq("id", postId);
+    setDeletePostId(null);
   };
 
   const displayPosts = posts;
@@ -498,7 +501,7 @@ const FeedPage = () => {
                   </div>
                   {isMyPost && (
                     <button
-                      onClick={() => deletePost(post.id)}
+                      onClick={() => setDeletePostId(post.id)}
                       className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition text-sm"
                     >
                       🗑️
@@ -724,6 +727,13 @@ const FeedPage = () => {
           })}
         </div>
       </div>
+      <DeleteConfirmDialog
+        open={deletePostId !== null}
+        onOpenChange={(open) => !open && setDeletePostId(null)}
+        onConfirm={() => { if (deletePostId) deletePost(deletePostId); }}
+        title="পোস্ট ডিলেট করবেন?"
+        description="এই পোস্টটি স্থায়ীভাবে মুছে ফেলা হবে।"
+      />
     </div>
   );
 };
