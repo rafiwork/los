@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -19,6 +20,7 @@ import { CallProvider } from "./components/call/CallProvider";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  useOnlineStatus();
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
@@ -55,7 +57,24 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-const App = () => (
+// Load dynamic site settings (favicon)
+function useSiteSettings() {
+  useEffect(() => {
+    supabase.from("site_settings" as any).select("*").then(({ data }) => {
+      if (!data) return;
+      (data as any[]).forEach((s: any) => {
+        if (s.key === "site_favicon" && s.value) {
+          const link = document.querySelector("link[rel='icon']") as HTMLLinkElement;
+          if (link) link.href = s.value;
+        }
+      });
+    });
+  }, []);
+}
+
+const App = () => {
+  useSiteSettings();
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -79,5 +98,6 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
+};
 
 export default App;
