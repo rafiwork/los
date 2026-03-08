@@ -174,16 +174,31 @@ const FeedPage = () => {
       };
     });
 
-    // Algorithm: sort by interest score + engagement + recency
+    // Enhanced Algorithm: interest score + engagement + recency + diversity
     enriched.sort((a, b) => {
       const aInterest = interestMap[a.category] || 0;
       const bInterest = interestMap[b.category] || 0;
-      const aEngagement = a.likes_count * 2 + a.comments_count * 3;
-      const bEngagement = b.likes_count * 2 + b.comments_count * 3;
-      const aAge = (Date.now() - new Date(a.created_at).getTime()) / 3600000; // hours
+      
+      // Engagement score (weighted: comments > likes)
+      const aEngagement = a.likes_count * 2 + a.comments_count * 4;
+      const bEngagement = b.likes_count * 2 + b.comments_count * 4;
+      
+      // Recency decay (exponential)
+      const aAge = (Date.now() - new Date(a.created_at).getTime()) / 3600000;
       const bAge = (Date.now() - new Date(b.created_at).getTime()) / 3600000;
-      const aScore = (aInterest * 10) + aEngagement - (aAge * 0.5);
-      const bScore = (bInterest * 10) + bEngagement - (bAge * 0.5);
+      const aDecay = Math.exp(-aAge * 0.08);
+      const bDecay = Math.exp(-bAge * 0.08);
+      
+      // Engagement velocity (engagement per hour)
+      const aVelocity = aAge > 0 ? aEngagement / Math.max(aAge, 0.5) : aEngagement * 2;
+      const bVelocity = bAge > 0 ? bEngagement / Math.max(bAge, 0.5) : bEngagement * 2;
+      
+      // Boost for posts by others (not own posts)
+      const aOtherBoost = a.user_id !== currentUserId ? 1.2 : 1;
+      const bOtherBoost = b.user_id !== currentUserId ? 1.2 : 1;
+      
+      const aScore = ((aInterest * 15) + aEngagement + (aVelocity * 3)) * aDecay * aOtherBoost;
+      const bScore = ((bInterest * 15) + bEngagement + (bVelocity * 3)) * bDecay * bOtherBoost;
       return bScore - aScore;
     });
 
