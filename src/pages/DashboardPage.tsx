@@ -46,6 +46,7 @@ const DashboardPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showNoData, setShowNoData] = useState(false);
+  const [showNewDay, setShowNewDay] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const isToday = selectedDate === getTodayStr();
