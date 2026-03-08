@@ -228,12 +228,18 @@ const FeedPage = () => {
     setPosting(false);
   };
 
-  // Like/unlike post
-  const toggleLike = async (post: Post) => {
-    if (post.liked_by_me) {
+  // React to post
+  const reactToPost = async (post: Post, reactionType: string) => {
+    setShowReactionPicker(null);
+    if (post.my_reaction === reactionType) {
+      // Remove reaction
       await supabase.from("post_likes").delete().eq("post_id", post.id).eq("user_id", currentUserId);
+    } else if (post.liked_by_me) {
+      // Change reaction
+      await supabase.from("post_likes").update({ reaction_type: reactionType } as any).eq("post_id", post.id).eq("user_id", currentUserId);
     } else {
-      await supabase.from("post_likes").insert({ post_id: post.id, user_id: currentUserId });
+      // New reaction
+      await supabase.from("post_likes").insert({ post_id: post.id, user_id: currentUserId, reaction_type: reactionType } as any);
       trackInterest(post.category);
     }
   };
