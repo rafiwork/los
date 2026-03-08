@@ -55,8 +55,8 @@ const ChatPage = () => {
   useEffect(() => {
     if (!currentUserId) return;
     const loadUsers = async () => {
-      const { data } = await supabase.from("profiles").select("user_id, name, email").neq("user_id", currentUserId);
-      if (data) setUsers(data);
+      const { data } = await supabase.from("profiles").select("user_id, name, email, is_online, last_seen").neq("user_id", currentUserId);
+      if (data) setUsers(data as Profile[]);
     };
     loadUsers();
   }, [currentUserId]);
