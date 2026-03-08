@@ -34,6 +34,7 @@ const ChatPage = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const { startCall } = useCall();
 
   // Get current user & set online
   const currentUserIdRef = useRef("");
