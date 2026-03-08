@@ -262,6 +262,7 @@ const ChatPage = () => {
           )}
         </div>
       </div>
+      <UserProfileDialog userId={profileUserId} open={profileOpen} onOpenChange={setProfileOpen} />
     </div>
   );
 };
