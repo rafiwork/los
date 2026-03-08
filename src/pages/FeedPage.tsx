@@ -727,6 +727,13 @@ const FeedPage = () => {
           })}
         </div>
       </div>
+      <DeleteConfirmDialog
+        open={deletePostId !== null}
+        onOpenChange={(open) => !open && setDeletePostId(null)}
+        onConfirm={() => { if (deletePostId) deletePost(deletePostId); }}
+        title="পোস্ট ডিলেট করবেন?"
+        description="এই পোস্টটি স্থায়ীভাবে মুছে ফেলা হবে।"
+      />
     </div>
   );
 };
