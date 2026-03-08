@@ -48,7 +48,7 @@ const defaultDayData: DayData = {
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  useOnlineStatus();
+
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [data, setData] = useState<DayData>(defaultDayData);
