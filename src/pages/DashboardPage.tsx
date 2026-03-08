@@ -94,7 +94,7 @@ const DashboardPage = () => {
 
   return (
     <div className="bg-background min-h-screen pb-10">
-      <NavBar userName={profile?.name || 'User'} selectedDate={selectedDate} onDateChange={setSelectedDate} onLogout={handleLogout} onSettings={() => setShowSettings(true)} onProfile={() => setShowProfile(true)} />
+      <NavBar userName={profile?.name || 'User'} selectedDate={selectedDate} onDateChange={setSelectedDate} onLogout={handleLogout} onSettings={() => setShowSettings(true)} onProfile={() => setShowProfile(true)} notificationSlot={<NotificationBell data={data} namazTimes={namazTimes} extraSettings={extraSettings} />} />
       <main className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
         <AIAssistant data={data} goals={goals} />
         <SummaryCards data={data} />
