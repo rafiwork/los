@@ -585,9 +585,7 @@ const ChatPage = () => {
           <div className="flex-1 overflow-y-auto px-3 py-4 no-scrollbar bg-background">
             {messages.length === 0 && (
               <div className="text-center py-16">
-                <div className={`w-20 h-20 mx-auto rounded-full bg-gradient-to-br ${getAvatarColor(selectedUser.name)} flex items-center justify-center text-white text-3xl font-bold shadow-lg mb-3`}>
-                  {selectedUser.name.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={80} className="mx-auto shadow-lg mb-3" />
                 <p className="font-bold text-foreground text-lg">{selectedUser.name}</p>
                 <p className="text-muted-foreground text-sm mt-1">কথোপকথন শুরু করুন</p>
               </div>
