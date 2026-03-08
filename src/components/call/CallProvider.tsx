@@ -30,7 +30,7 @@ const ICE_SERVERS = [
   { urls: "stun:stun1.l.google.com:19302" },
 ];
 
-const RINGTONE_FREQ = [440, 554, 659];
+
 
 export const CallProvider = ({ children }: { children: ReactNode }) => {
   const [callState, setCallState] = useState<CallState>({
