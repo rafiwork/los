@@ -31,6 +31,8 @@ const AdminPage = () => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [appeals, setAppeals] = useState<Appeal[]>([]);
   const [search, setSearch] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const USERS_PER_PAGE = 50;
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [actionModal, setActionModal] = useState<{ type: string; user: AdminUser } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; desc: string; onConfirm: () => void } | null>(null);
