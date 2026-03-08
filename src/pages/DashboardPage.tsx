@@ -20,6 +20,7 @@ import PermNoteCard from "@/components/dashboard/PermNoteCard";
 import AccountCard from "@/components/dashboard/AccountCard";
 import AIAssistant from "@/components/dashboard/AIAssistant";
 import MedicineCard from "@/components/dashboard/MedicineCard";
+import WeeklyAnalytics from "@/components/dashboard/WeeklyAnalytics";
 import SettingsModal from "@/components/dashboard/SettingsModal";
 import ProfileModal from "@/components/dashboard/ProfileModal";
 import NoDataDialog from "@/components/dashboard/NoDataDialog";
@@ -118,6 +119,7 @@ const DashboardPage = () => {
             <AccountCard accounts={data.accounts} onAccountsChange={accounts => updateData({ accounts })} />
             <PermNoteCard notes={permNotes} onNotesChange={updatePermNotes} />
             <DiaryCard notebooks={data.notebooks} activeNoteId={data.activeNoteId} onUpdate={(notebooks, activeNoteId) => updateData({ notebooks, activeNoteId })} />
+            <WeeklyAnalytics />
           </div>
           <div className="md:col-span-4 space-y-4 md:space-y-6">
             <NamazTracker namaz={data.namaz} onNamazChange={namaz => updateData({ namaz })} />
