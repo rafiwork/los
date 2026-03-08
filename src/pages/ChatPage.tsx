@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import UserProfileDialog from "@/components/chat/UserProfileDialog";
 
 interface Profile {
   user_id: string;
