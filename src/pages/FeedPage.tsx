@@ -12,7 +12,10 @@ import UserProfileDialog from "@/components/chat/UserProfileDialog";
 import FeedNotifications from "@/components/feed/FeedNotifications";
 import FriendList from "@/components/feed/FriendList";
 import FeedSettingsModal from "@/components/feed/FeedSettingsModal";
+import LinkPreview from "@/components/feed/LinkPreview";
 import { Settings } from "lucide-react";
+import { loadSpamWords, checkSpam, recordViolation, isSpamBanned } from "@/lib/spamChecker";
+import { toast } from "sonner";
 
 interface PostProfile {
   name: string;
@@ -120,13 +123,19 @@ const FeedPage = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const [spamWords, setSpamWords] = useState<string[]>([]);
+  const [spamBanStatus, setSpamBanStatus] = useState<{ banned: boolean; permanent: boolean; banUntil: string | null }>({ banned: false, permanent: false, banUntil: null });
 
   // Init
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUserId(user.id);
+      if (user) {
+        setCurrentUserId(user.id);
+        isSpamBanned(user.id).then(setSpamBanStatus);
+      }
     });
     getMyStatus().then(setUserStatus);
+    loadSpamWords().then(setSpamWords);
   }, []);
 
   // Unread messages count
@@ -322,6 +331,23 @@ const FeedPage = () => {
   // Create post
   const createPost = async () => {
     if (!newPostContent.trim() || !currentUserId) return;
+    // Check spam ban
+    if (spamBanStatus.banned) {
+      toast.error(spamBanStatus.permanent ? "আপনার পোস্ট করার অধিকার স্থায়ীভাবে বন্ধ।" : `আপনি ${new Date(spamBanStatus.banUntil!).toLocaleDateString('bn-BD')} পর্যন্ত পোস্ট করতে পারবেন না।`);
+      return;
+    }
+    // Check spam words
+    const matched = checkSpam(newPostContent, spamWords);
+    if (matched) {
+      const result = await recordViolation(currentUserId, matched, "post");
+      if (result.banned) {
+        setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
+        toast.error(result.permanent ? "স্প্যামের কারণে আপনার পোস্ট করা স্থায়ীভাবে বন্ধ হয়েছে!" : `স্প্যামের কারণে ${result.banDays} দিনের জন্য পোস্ট/কমেন্ট বন্ধ!`);
+      } else {
+        toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড! সতর্ক থাকুন।`);
+      }
+      return;
+    }
     setPosting(true);
     const autoCategory = detectCategory(newPostContent);
     await supabase.from("posts").insert({
@@ -409,6 +435,22 @@ const FeedPage = () => {
   const addComment = async (postId: string) => {
     const text = commentInputs[postId]?.trim();
     if (!text || !currentUserId) return;
+    // Spam ban check
+    if (spamBanStatus.banned) {
+      toast.error(spamBanStatus.permanent ? "আপনার কমেন্ট করার অধিকার স্থায়ীভাবে বন্ধ।" : "আপনি এখন কমেন্ট করতে পারবেন না।");
+      return;
+    }
+    const matched = checkSpam(text, spamWords);
+    if (matched) {
+      const result = await recordViolation(currentUserId, matched, "comment", postId);
+      if (result.banned) {
+        setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
+        toast.error(result.permanent ? "স্প্যামের কারণে স্থায়ী ব্যান!" : `${result.banDays} দিনের ব্যান!`);
+      } else {
+        toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড!`);
+      }
+      return;
+    }
     await supabase.from("post_comments").insert({
       post_id: postId,
       user_id: currentUserId,
@@ -626,6 +668,7 @@ const FeedPage = () => {
                 {/* Post Content */}
                 <div className="px-3 sm:px-4 pb-3">
                   <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed overflow-hidden">{post.content}</p>
+                  <LinkPreview content={post.content} />
                 </div>
 
                 {/* Reaction Stats */}

@@ -587,6 +587,84 @@ export type Database = {
         }
         Relationships: []
       }
+      spam_bans: {
+        Row: {
+          ban_until: string | null
+          created_at: string
+          id: string
+          is_permanent: boolean
+          updated_at: string
+          user_id: string
+          violation_count: number
+        }
+        Insert: {
+          ban_until?: string | null
+          created_at?: string
+          id?: string
+          is_permanent?: boolean
+          updated_at?: string
+          user_id: string
+          violation_count?: number
+        }
+        Update: {
+          ban_until?: string | null
+          created_at?: string
+          id?: string
+          is_permanent?: boolean
+          updated_at?: string
+          user_id?: string
+          violation_count?: number
+        }
+        Relationships: []
+      }
+      spam_violations: {
+        Row: {
+          content_id: string | null
+          content_type: string
+          created_at: string
+          id: string
+          user_id: string
+          word_matched: string
+        }
+        Insert: {
+          content_id?: string | null
+          content_type?: string
+          created_at?: string
+          id?: string
+          user_id: string
+          word_matched: string
+        }
+        Update: {
+          content_id?: string | null
+          content_type?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+          word_matched?: string
+        }
+        Relationships: []
+      }
+      spam_words: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          word: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          word: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          word?: string
+        }
+        Relationships: []
+      }
       user_blocks: {
         Row: {
           blocked_id: string

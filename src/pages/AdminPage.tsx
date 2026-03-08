@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { isAdmin, getAllUsers, getAdminStats, getActivityLogs, updateUserStatus, toggleVerified, sendAdminNotification, getAppeals, updateAppealStatus, deleteUserAccount, type AdminUser, type ActivityLog, type Appeal } from "@/lib/adminStore";
 import { supabase } from "@/integrations/supabase/client";
-import { Shield, Users, UserCheck, UserX, Lock, Unlock, Eye, Bell, Activity, Search, ArrowLeft, BadgeCheck, Ban, Clock, Send, Trash2, LogIn, FileText } from "lucide-react";
+import { Shield, Users, UserCheck, UserX, Lock, Unlock, Eye, Bell, Activity, Search, ArrowLeft, BadgeCheck, Ban, Clock, Send, Trash2, LogIn, FileText, AlertTriangle, Plus, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { bn } from "date-fns/locale";
 import { toast } from "sonner";
@@ -25,7 +25,7 @@ const AdminPage = () => {
   const navigate = useNavigate();
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"dashboard" | "users" | "appeals" | "logs">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "users" | "appeals" | "logs" | "spam">("dashboard");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [stats, setStats] = useState({ total: 0, active: 0, blocked: 0, suspended: 0, locked: 0, verified: 0, online: 0 });
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -42,6 +42,10 @@ const AdminPage = () => {
   const [notifMessage, setNotifMessage] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [appealResponse, setAppealResponse] = useState("");
+  const [spamWords, setSpamWords] = useState<any[]>([]);
+  const [newSpamWord, setNewSpamWord] = useState("");
+  const [spamViolations, setSpamViolations] = useState<any[]>([]);
+  const [spamBans, setSpamBans] = useState<any[]>([]);
 
   useEffect(() => {
     const check = async () => {
@@ -64,6 +68,13 @@ const AdminPage = () => {
     setStats(s);
     setLogs(l);
     setAppeals(a);
+    // Load spam data
+    const { data: sw } = await supabase.from("spam_words" as any).select("*").order("created_at", { ascending: false });
+    setSpamWords((sw as any[]) || []);
+    const { data: sv } = await supabase.from("spam_violations" as any).select("*").order("created_at", { ascending: false }).limit(50);
+    setSpamViolations((sv as any[]) || []);
+    const { data: sb } = await supabase.from("spam_bans" as any).select("*").order("violation_count", { ascending: false });
+    setSpamBans((sb as any[]) || []);
   }, []);
 
   const filteredUsers = users.filter(u =>
@@ -187,6 +198,28 @@ const AdminPage = () => {
   };
 
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><div className="text-primary text-xl font-bold animate-pulse">এডমিন প্যানেল লোড হচ্ছে...</div></div>;
+
+  const addSpamWord = async () => {
+    if (!newSpamWord.trim()) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("spam_words" as any).insert({ word: newSpamWord.trim().toLowerCase(), added_by: user?.id });
+    setNewSpamWord("");
+    await refresh();
+    toast.success("স্প্যাম ওয়ার্ড যুক্ত হয়েছে");
+  };
+
+  const removeSpamWord = async (id: string) => {
+    await supabase.from("spam_words" as any).delete().eq("id", id);
+    await refresh();
+    toast.success("স্প্যাম ওয়ার্ড সরানো হয়েছে");
+  };
+
+  const liftSpamBan = async (userId: string) => {
+    await supabase.from("spam_bans" as any).update({ ban_until: null, is_permanent: false, updated_at: new Date().toISOString() }).eq("user_id", userId);
+    await sendAdminNotification(userId, "✅ স্প্যাম ব্যান মুক্ত", "আপনার স্প্যাম ব্যান তুলে নেওয়া হয়েছে। সতর্ক থাকুন।", "success");
+    await refresh();
+    toast.success("ব্যান মুক্ত করা হয়েছে");
+  };
   if (!authorized) return null;
 
   const timeAgo = (d: string) => { try { return formatDistanceToNow(new Date(d), { addSuffix: true, locale: bn }); } catch { return ""; } };
@@ -220,6 +253,7 @@ const AdminPage = () => {
           {[
             { key: "dashboard", icon: Activity, label: "ড্যাশবোর্ড" },
             { key: "users", icon: Users, label: "ইউজার" },
+            { key: "spam", icon: AlertTriangle, label: `স্প্যাম${spamBans.filter(b => b.violation_count > 0).length ? ` (${spamBans.filter(b => b.violation_count > 0).length})` : ""}` },
             { key: "appeals", icon: FileText, label: `আবেদন${pendingAppeals.length ? ` (${pendingAppeals.length})` : ""}` },
             { key: "logs", icon: Clock, label: "লগ" },
           ].map(t => (
@@ -457,6 +491,98 @@ const AdminPage = () => {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Spam Tab */}
+        {tab === "spam" && (
+          <div className="space-y-6">
+            {/* Add Spam Word */}
+            <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><AlertTriangle size={18} /> স্প্যাম ওয়ার্ড ম্যানেজমেন্ট</h3>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newSpamWord}
+                  onChange={e => setNewSpamWord(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addSpamWord()}
+                  placeholder="নতুন স্প্যাম ওয়ার্ড যুক্ত করুন..."
+                  className="flex-1 px-4 py-3 rounded-xl bg-secondary border border-border outline-none text-sm font-bold text-foreground focus:border-primary transition"
+                />
+                <button
+                  onClick={addSpamWord}
+                  disabled={!newSpamWord.trim()}
+                  className="px-5 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Plus size={16} /> যুক্ত
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {spamWords.map((sw: any) => (
+                  <div key={sw.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-destructive/10 border border-destructive/30 rounded-full text-sm font-bold text-destructive">
+                    {sw.word}
+                    <button onClick={() => removeSpamWord(sw.id)} className="hover:bg-destructive/20 rounded-full p-0.5 transition"><X size={14} /></button>
+                  </div>
+                ))}
+                {spamWords.length === 0 && <p className="text-sm text-muted-foreground">কোনো স্প্যাম ওয়ার্ড যুক্ত করা হয়নি</p>}
+              </div>
+            </div>
+
+            {/* Active Bans */}
+            <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Ban size={18} /> স্প্যাম ব্যান তালিকা</h3>
+              <div className="space-y-2">
+                {spamBans.filter((b: any) => b.violation_count > 0).map((ban: any) => {
+                  const banUser = users.find(u => u.user_id === ban.user_id);
+                  const isActive = ban.is_permanent || (ban.ban_until && new Date(ban.ban_until) > new Date());
+                  return (
+                    <div key={ban.id} className={`flex items-center justify-between p-3 rounded-xl border ${isActive ? "bg-destructive/5 border-destructive/30" : "bg-secondary border-border"}`}>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{banUser?.name || "অজানা"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          লঙ্ঘন: {ban.violation_count} বার
+                          {ban.is_permanent && " • স্থায়ী ব্যান"}
+                          {!ban.is_permanent && ban.ban_until && isActive && ` • ব্যান: ${new Date(ban.ban_until).toLocaleDateString('bn-BD')} পর্যন্ত`}
+                          {!isActive && " • মুক্ত"}
+                        </p>
+                      </div>
+                      {isActive && (
+                        <button
+                          onClick={() => liftSpamBan(ban.user_id)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 text-xs font-bold hover:bg-emerald-500/25 transition"
+                        >
+                          <Unlock size={14} className="inline mr-1" /> মুক্ত করুন
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                {spamBans.filter((b: any) => b.violation_count > 0).length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">কোনো স্প্যাম ব্যান নেই</p>
+                )}
+              </div>
+            </div>
+
+            {/* Recent Violations */}
+            <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Eye size={18} /> সাম্প্রতিক লঙ্ঘন</h3>
+              <div className="space-y-2 max-h-80 overflow-y-auto no-scrollbar">
+                {spamViolations.map((v: any) => {
+                  const vUser = users.find(u => u.user_id === v.user_id);
+                  return (
+                    <div key={v.id} className="flex items-center justify-between p-3 bg-secondary rounded-xl">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">
+                          {vUser?.name || "অজানা"} <span className="text-destructive">"{v.word_matched}"</span> ব্যবহার করেছে
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">{v.content_type === "post" ? "পোস্টে" : "কমেন্টে"} • {timeAgo(v.created_at)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {spamViolations.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">কোনো লঙ্ঘন নেই</p>}
+              </div>
+            </div>
           </div>
         )}
 
