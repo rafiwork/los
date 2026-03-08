@@ -458,7 +458,7 @@ const ChatPage = () => {
                   </div>
                   {newMessage.trim() ? (
                     <button
-                      onClick={sendMessage}
+                      onClick={() => sendMessage()}
                       className="w-9 h-9 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-all active:scale-90 shrink-0 shadow-sm"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -466,7 +466,7 @@ const ChatPage = () => {
                       </svg>
                     </button>
                   ) : (
-                    <button onClick={() => { setNewMessage("👍"); setTimeout(() => sendMessage(), 50); }} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition-colors text-primary text-xl shrink-0">
+                    <button onClick={() => sendMessage("👍")} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition-colors text-primary text-xl shrink-0">
                       👍
                     </button>
                   )}
