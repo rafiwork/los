@@ -72,7 +72,7 @@ const MedicineCard = ({ medicines, doses, onMedicinesChange, onDosesChange }: Pr
           <input type="text" value={dose} onChange={e => setDose(e.target.value)} placeholder="ডোজ" className="w-20 p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-foreground" />
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <input type="time" value={time} onChange={e => setTime(e.target.value)} className="p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-muted-foreground w-[120px]" />
+          <TimeInput value={time} onChange={setTime} placeholder="HH:MM" className="p-2.5 rounded-lg bg-card border border-border outline-none text-sm font-bold text-muted-foreground w-[120px]" />
           <button onClick={addTime} className="bg-life-pink/20 text-life-pink px-3 py-2.5 rounded-lg text-xs font-bold hover:bg-life-pink/30 transition whitespace-nowrap">+ সময়</button>
         </div>
         {times.length > 0 && (

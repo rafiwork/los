@@ -76,7 +76,7 @@ const SettingsModal = ({ habitDefs, onHabitDefsChange, onClose }: Props) => {
             <div className="grid grid-cols-2 gap-3">
               <div><label className="text-xs font-bold text-muted-foreground">ডেইলি বাজেট</label><input type="number" value={settings.dailyLimit} onChange={e => setSettings({ ...settings, dailyLimit: parseInt(e.target.value) || 0 })} className="w-full p-2 border border-border rounded-xl font-bold bg-secondary text-foreground outline-none" /></div>
               <div><label className="text-xs font-bold text-muted-foreground">মাসিক বাজেট</label><input type="number" value={settings.monthlyLimit} onChange={e => setSettings({ ...settings, monthlyLimit: parseInt(e.target.value) || 0 })} className="w-full p-2 border border-border rounded-xl font-bold bg-secondary text-foreground outline-none" /></div>
-              <div className="col-span-2"><label className="text-xs font-bold text-muted-foreground">ঘুমানোর সময়</label><input type="time" value={settings.sleepTime} onChange={e => setSettings({ ...settings, sleepTime: e.target.value })} className="w-full p-2 border border-border rounded-xl font-bold bg-secondary text-foreground outline-none" /></div>
+              <div className="col-span-2"><label className="text-xs font-bold text-muted-foreground">ঘুমানোর সময়</label><TimeInput value={settings.sleepTime || ""} onChange={v => setSettings({ ...settings, sleepTime: v })} placeholder="২২:০০" className="w-full p-2 border border-border rounded-xl font-bold bg-secondary text-foreground outline-none" /></div>
             </div>
           </section>
 
