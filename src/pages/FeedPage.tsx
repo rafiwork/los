@@ -370,8 +370,8 @@ const FeedPage = () => {
                 className="w-full bg-secondary/50 border border-border rounded-xl p-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 resize-none transition"
                 rows={3}
               />
-              <div className="flex items-center justify-between mt-2 gap-2">
-                <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+              <div className="flex items-center justify-between mt-2 gap-2 flex-wrap sm:flex-nowrap">
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar max-w-full pb-1">
                   {CATEGORIES.map(c => (
                     <button
                       key={c.value}
