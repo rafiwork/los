@@ -29,6 +29,8 @@ const ChatPage = () => {
   const [showUserList, setShowUserList] = useState(true);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Get current user
   useEffect(() => {
