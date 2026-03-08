@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { signOut, getProfile, loadDayData, saveDayData, getGoals, saveGoals, getPermNotes, savePermNotes, getNamazTimes, getExtraSettings, getTodayStr, type DayData, type Goal, type PermNote, type UserProfile, type NamazTimes, type ExtraSettings } from "@/lib/dataStore";
+import { signOut, getProfile, loadDayData, saveDayData, getGoals, saveGoals, getPermNotes, savePermNotes, getNamazTimes, getExtraSettings, saveExtraSettings, getTodayStr, type DayData, type Goal, type PermNote, type UserProfile, type NamazTimes, type ExtraSettings } from "@/lib/dataStore";
+import type { Medicine } from "@/lib/types";
 import NavBar from "@/components/dashboard/NavBar";
 import NotificationBell from "@/components/dashboard/NotificationBell";
 import SummaryCards from "@/components/dashboard/SummaryCards";
@@ -18,6 +19,7 @@ import SleepTracker from "@/components/dashboard/SleepTracker";
 import PermNoteCard from "@/components/dashboard/PermNoteCard";
 import AccountCard from "@/components/dashboard/AccountCard";
 import AIAssistant from "@/components/dashboard/AIAssistant";
+import MedicineCard from "@/components/dashboard/MedicineCard";
 import SettingsModal from "@/components/dashboard/SettingsModal";
 import ProfileModal from "@/components/dashboard/ProfileModal";
 import NoDataDialog from "@/components/dashboard/NoDataDialog";
@@ -118,6 +120,16 @@ const DashboardPage = () => {
           </div>
           <div className="md:col-span-4 space-y-4 md:space-y-6">
             <NamazTracker namaz={data.namaz} onNamazChange={namaz => updateData({ namaz })} />
+            <MedicineCard
+              medicines={extraSettings.medicines || []}
+              doses={data.medicineDoses || []}
+              onMedicinesChange={(medicines: Medicine[]) => {
+                const newSettings = { ...extraSettings, medicines };
+                setExtraSettings(newSettings);
+                saveExtraSettings(newSettings);
+              }}
+              onDosesChange={medicineDoses => updateData({ medicineDoses })}
+            />
             <ExpenseCard expenses={data.expenses} onExpensesChange={expenses => updateData({ expenses })} />
             <HabitCard habits={data.habits} onHabitsChange={habits => updateData({ habits })} />
             <QuickNoteCard notes={data.quickNotesArray} onNotesChange={quickNotesArray => updateData({ quickNotesArray })} />
