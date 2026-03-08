@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { Medicine, MedicineDose } from "@/lib/types";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
+import TimeInput from "@/components/ui/time-input";
 
 interface Props {
   medicines: Medicine[];
