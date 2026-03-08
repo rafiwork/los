@@ -46,6 +46,11 @@ const AdminPage = () => {
   const [newSpamWord, setNewSpamWord] = useState("");
   const [spamViolations, setSpamViolations] = useState<any[]>([]);
   const [spamBans, setSpamBans] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
+  const [reportReplies, setReportReplies] = useState<Record<string, any[]>>({});
+  const [reportReplyText, setReportReplyText] = useState("");
+  const [replyingReportId, setReplyingReportId] = useState<string | null>(null);
+  const [reportAdminNote, setReportAdminNote] = useState("");
 
   useEffect(() => {
     const check = async () => {
