@@ -46,6 +46,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const ringtoneRef = useRef<AudioContext | null>(null);
   const ringtoneOscRef = useRef<OscillatorNode[]>([]);
+  const ringtoneTimerRef = useRef<number | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const callTypeRef = useRef<"audio" | "video">("audio");
 
