@@ -239,11 +239,11 @@ const ChatPage = () => {
           .select("content, created_at")
           .eq("group_id", g.id)
           .order("created_at", { ascending: false })
-          .limit(1);
+          .limit(1) as any;
         const { count } = await supabase
           .from("chat_group_members" as any)
           .select("*", { count: "exact", head: true })
-          .eq("group_id", g.id);
+          .eq("group_id", g.id) as any;
         enriched.push({
           ...g,
           member_count: count || 0,
