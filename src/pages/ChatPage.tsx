@@ -521,9 +521,7 @@ const ChatPage = () => {
               {users.filter(u => u.is_online).map(u => (
                 <button key={u.user_id} onClick={() => setSelectedUser(u)} className="flex flex-col items-center gap-1 min-w-[56px]">
                   <div className="relative">
-                    <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${getAvatarColor(u.name)} flex items-center justify-center text-white text-base font-bold shadow-md`}>
-                      {u.name.charAt(0).toUpperCase()}
-                    </div>
+                    <UserAvatar name={u.name} avatarUrl={u.avatar_url} size={56} className="shadow-md" />
                     <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
                   </div>
                   <span className="text-[11px] text-muted-foreground truncate w-14 text-center">{u.name.split(" ")[0]}</span>
