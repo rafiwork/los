@@ -47,6 +47,7 @@ const ChatPage = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [showInsightPanel, setShowInsightPanel] = useState(false);
   const { startCall } = useCall();
   const inputRef = useRef<HTMLInputElement>(null);
   const currentUserIdRef = useRef("");
