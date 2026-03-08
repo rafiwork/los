@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { signOut, getProfile, loadDayData, saveDayData, getGoals, saveGoals, getPermNotes, savePermNotes, getNamazTimes, getExtraSettings, saveExtraSettings, getAccounts, saveAccounts, getQuickNotes, saveQuickNotes, getHabitDefinitions, saveHabitDefinitions, getMonthlyExpenses, getTodayStr, type DayData, type Goal, type PermNote, type UserProfile, type NamazTimes, type ExtraSettings } from "@/lib/dataStore";
 import type { Medicine, Habit, Transaction } from "@/lib/types";
@@ -8,25 +8,34 @@ import SummaryCards from "@/components/dashboard/SummaryCards";
 import MoodTracker from "@/components/dashboard/MoodTracker";
 import WaterTracker from "@/components/dashboard/WaterTracker";
 import ProgressCard from "@/components/dashboard/ProgressCard";
-import TaskCard from "@/components/dashboard/TaskCard";
-import GoalCard from "@/components/dashboard/GoalCard";
-import ExpenseCard from "@/components/dashboard/ExpenseCard";
-import NamazTracker from "@/components/dashboard/NamazTracker";
-import HabitCard from "@/components/dashboard/HabitCard";
-import DiaryCard from "@/components/dashboard/DiaryCard";
-import QuickNoteCard from "@/components/dashboard/QuickNoteCard";
-import SleepTracker from "@/components/dashboard/SleepTracker";
-import PermNoteCard from "@/components/dashboard/PermNoteCard";
-import AccountCard from "@/components/dashboard/AccountCard";
-import AIAssistant from "@/components/dashboard/AIAssistant";
-import MedicineCard from "@/components/dashboard/MedicineCard";
-import WeeklyAnalytics from "@/components/dashboard/WeeklyAnalytics";
-import SettingsModal from "@/components/dashboard/SettingsModal";
-import DailySummary from "@/components/dashboard/DailySummary";
-import ProfileModal from "@/components/dashboard/ProfileModal";
-import NoDataDialog from "@/components/dashboard/NoDataDialog";
-import SoundAlertManager from "@/components/dashboard/SoundAlertManager";
 import NewDayDialog from "@/components/dashboard/NewDayDialog";
+
+// Lazy load heavier components
+const TaskCard = lazy(() => import("@/components/dashboard/TaskCard"));
+const GoalCard = lazy(() => import("@/components/dashboard/GoalCard"));
+const ExpenseCard = lazy(() => import("@/components/dashboard/ExpenseCard"));
+const NamazTracker = lazy(() => import("@/components/dashboard/NamazTracker"));
+const HabitCard = lazy(() => import("@/components/dashboard/HabitCard"));
+const DiaryCard = lazy(() => import("@/components/dashboard/DiaryCard"));
+const QuickNoteCard = lazy(() => import("@/components/dashboard/QuickNoteCard"));
+const SleepTracker = lazy(() => import("@/components/dashboard/SleepTracker"));
+const PermNoteCard = lazy(() => import("@/components/dashboard/PermNoteCard"));
+const AccountCard = lazy(() => import("@/components/dashboard/AccountCard"));
+const AIAssistant = lazy(() => import("@/components/dashboard/AIAssistant"));
+const MedicineCard = lazy(() => import("@/components/dashboard/MedicineCard"));
+const WeeklyAnalytics = lazy(() => import("@/components/dashboard/WeeklyAnalytics"));
+const SettingsModal = lazy(() => import("@/components/dashboard/SettingsModal"));
+const DailySummary = lazy(() => import("@/components/dashboard/DailySummary"));
+const ProfileModal = lazy(() => import("@/components/dashboard/ProfileModal"));
+const NoDataDialog = lazy(() => import("@/components/dashboard/NoDataDialog"));
+const SoundAlertManager = lazy(() => import("@/components/dashboard/SoundAlertManager"));
+
+const CardSkeleton = () => (
+  <div className="bg-card border border-border rounded-2xl p-4 animate-pulse">
+    <div className="h-4 bg-secondary rounded w-1/3 mb-3"></div>
+    <div className="h-3 bg-secondary rounded w-2/3"></div>
+  </div>
+);
 
 const defaultDayData: DayData = {
   mood: '', water: 0, tasks: [], expenses: [],
