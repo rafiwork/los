@@ -651,9 +651,9 @@ const ChatPage = () => {
                   {selectedUser.is_online ? <span className="text-green-500 font-medium">সক্রিয়</span> : <span className="text-muted-foreground">{formatLastSeen(selectedUser.last_seen)}</span>}
                 </p>
               </div>
-              <div className="flex items-center">
-                <button onClick={() => startCall(selectedUser.user_id, selectedUser.name, "audio")} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition active:scale-95 text-primary text-lg">📞</button>
-                <button onClick={() => startCall(selectedUser.user_id, selectedUser.name, "video")} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition active:scale-95 text-primary text-lg">📹</button>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); startCall(selectedUser.user_id, selectedUser.name, "audio"); }} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary transition active:scale-95 active:bg-primary/20 text-primary text-lg touch-manipulation">📞</button>
+                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); startCall(selectedUser.user_id, selectedUser.name, "video"); }} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary transition active:scale-95 active:bg-primary/20 text-primary text-lg touch-manipulation">📹</button>
                 <button
                   onClick={() => setShowInsightPanel(true)}
                   className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition active:scale-95 text-muted-foreground text-sm"
