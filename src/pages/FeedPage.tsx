@@ -392,6 +392,16 @@ const FeedPage = () => {
       user_id: currentUserId,
       content: text,
     });
+    // Send notification to post owner
+    const post = posts.find(p => p.id === postId);
+    if (post && post.user_id !== currentUserId) {
+      await supabase.from("feed_notifications").insert({
+        user_id: post.user_id,
+        actor_id: currentUserId,
+        type: 'comment',
+        post_id: postId
+      });
+    }
     setCommentInputs(prev => ({ ...prev, [postId]: "" }));
     trackInterest(posts.find(p => p.id === postId)?.category || "general");
   };
