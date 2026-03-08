@@ -584,6 +584,9 @@ const FeedPage = () => {
             <Settings size={18} />
           </button>
           <FriendList currentUserId={currentUserId} profiles={profiles} onSelectUser={(uid) => { setProfileUserId(uid); setProfileOpen(true); }} />
+          <button onClick={() => { setShowMyReports(true); loadMyReports(); }} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm shrink-0" title="আমার রিপোর্ট">
+            🚩
+          </button>
           <FeedNotifications currentUserId={currentUserId} profiles={profiles} />
           <button onClick={() => navigate("/chat")} className="relative w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm shrink-0">
             💬
