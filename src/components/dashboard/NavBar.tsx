@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
 
 interface Props {
   userName: string;
