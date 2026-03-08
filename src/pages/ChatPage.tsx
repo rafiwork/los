@@ -192,8 +192,9 @@ const ChatPage = () => {
                   onClick={() => { setSelectedUser(u); setShowUserList(false); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/80 transition border-b border-border/50 ${selectedUser?.user_id === u.user_id ? 'bg-primary/5 border-l-4 border-l-primary' : ''}`}
                 >
-                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center text-sm font-black shrink-0">
+                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center text-sm font-black shrink-0 relative">
                     {u.name.charAt(0).toUpperCase()}
+                    {u.is_online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />}
                   </div>
                   <div className="flex-1 min-w-0 text-left">
                     <p
