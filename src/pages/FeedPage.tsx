@@ -228,6 +228,38 @@ const FeedPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [currentUserId, loadPosts, expandedComments]);
 
+  // View-time tracking with IntersectionObserver
+  useEffect(() => {
+    if (!currentUserId) return;
+    
+    observerRef.current = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const postId = entry.target.getAttribute("data-post-id");
+        if (!postId) return;
+        
+        if (entry.isIntersecting) {
+          viewTimers.current[postId] = Date.now();
+        } else if (viewTimers.current[postId]) {
+          const viewTime = (Date.now() - viewTimers.current[postId]) / 1000;
+          delete viewTimers.current[postId];
+          
+          if (viewTime >= 3) {
+            const post = posts.find(p => p.id === postId);
+            if (post) {
+              const boost = Math.min(Math.floor(viewTime / 3), 3);
+              for (let i = 0; i < boost; i++) trackInterest(post.category);
+            }
+          }
+        }
+      });
+    }, { threshold: 0.5 });
+    
+    document.querySelectorAll("[data-post-id]").forEach(el => {
+      observerRef.current?.observe(el);
+    });
+    
+    return () => { observerRef.current?.disconnect(); };
+  }, [currentUserId, posts]);
   // Track interest
   const trackInterest = async (category: string) => {
     if (!currentUserId) return;
