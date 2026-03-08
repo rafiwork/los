@@ -20,6 +20,7 @@ import { CallProvider } from "./components/call/CallProvider";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  useOnlineStatus();
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
