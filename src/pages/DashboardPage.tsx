@@ -51,18 +51,19 @@ const DashboardPage = () => {
 
   const isToday = selectedDate === getTodayStr();
 
-  // Auto-switch to new day at midnight
+  // Auto-switch to new day at midnight with greeting
   useEffect(() => {
     const checkDateChange = () => {
       const today = getTodayStr();
-      if (selectedDate !== today && selectedDate === prevDateRef.current) {
+      if (today !== prevDateRef.current) {
+        prevDateRef.current = today;
         setSelectedDate(today);
+        setShowNewDay(true);
       }
-      prevDateRef.current = today;
     };
-    const interval = setInterval(checkDateChange, 10000); // check every 10s
+    const interval = setInterval(checkDateChange, 5000);
     return () => clearInterval(interval);
-  }, [selectedDate]);
+  }, []);
 
   const prevDateRef = useRef(getTodayStr());
 
