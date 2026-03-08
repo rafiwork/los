@@ -147,10 +147,10 @@ const ChatPage = () => {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedUser || !currentUserId) return;
-    const content = newMessage.trim();
-    setNewMessage("");
+  const sendMessage = async (overrideContent?: string) => {
+    const content = overrideContent || newMessage.trim();
+    if (!content || !selectedUser || !currentUserId) return;
+    if (!overrideContent) setNewMessage("");
     await supabase.from("messages").insert({ sender_id: currentUserId, receiver_id: selectedUser.user_id, content });
   };
 
