@@ -11,6 +11,8 @@ import { BadgeCheck } from "lucide-react";
 import UserProfileDialog from "@/components/chat/UserProfileDialog";
 import FeedNotifications from "@/components/feed/FeedNotifications";
 import FriendList from "@/components/feed/FriendList";
+import FeedSettingsModal from "@/components/feed/FeedSettingsModal";
+import { Settings } from "lucide-react";
 
 interface PostProfile {
   name: string;
