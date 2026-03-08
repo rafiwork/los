@@ -318,13 +318,12 @@ const ChatPage = () => {
                     onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}
                     className="relative shrink-0 group"
                   >
-                    <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${getAvatarColor(selectedUser.name)} flex items-center justify-center text-white text-sm font-bold shadow-sm group-hover:shadow-md transition-shadow`}>
-                      {selectedUser.name.charAt(0).toUpperCase()}
+                    <div className="relative">
+                      <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={44} className="group-hover:shadow-md transition-shadow" />
+                      {selectedUser.is_online && (
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
+                      )}
                     </div>
-                    {selectedUser.is_online && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
-                    )}
-                  </button>
                   <div
                     className="min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}
