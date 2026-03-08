@@ -479,12 +479,19 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
             </div>
           )}
 
-          {/* Always-mounted hidden audio/video elements for stream playback */}
-          {callState.callType === "audio" && (
-            <>
-              <audio ref={(el) => { if (el && remoteStreamRef.current) { el.srcObject = remoteStreamRef.current; el.play().catch(() => {}); } }} autoPlay playsInline className="hidden" />
-            </>
-          )}
+          {/* Always-mounted hidden audio element for remote stream playback */}
+          <audio
+            ref={(el) => {
+              remoteAudioRef.current = el;
+              if (el && remoteStreamRef.current) {
+                el.srcObject = remoteStreamRef.current;
+                el.play().catch(() => {});
+              }
+            }}
+            autoPlay
+            playsInline
+            className="hidden"
+          />
 
           {/* Controls */}
           <div className="bg-black/90 p-6 pb-8">
