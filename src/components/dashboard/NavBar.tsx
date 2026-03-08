@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { format } from "date-fns";
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   onLogout: () => void;
   onSettings: () => void;
   onProfile: () => void;
+  notificationSlot?: ReactNode;
 }
 
 const NavBar = ({ userName, selectedDate, onDateChange, onLogout, onSettings, onProfile }: Props) => {
