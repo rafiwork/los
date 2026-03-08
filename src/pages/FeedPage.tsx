@@ -354,7 +354,7 @@ const FeedPage = () => {
     await supabase.from("posts").delete().eq("id", postId);
   };
 
-  const displayPosts = filterCategory ? posts.filter(p => p.category === filterCategory) : posts;
+  const displayPosts = posts;
 
   const timeAgo = (date: string) => {
     try {
