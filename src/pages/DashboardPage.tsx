@@ -35,6 +35,8 @@ const DashboardPage = () => {
   const [data, setData] = useState<DayData>(defaultDayData);
   const [goals, setGoalsState] = useState<Goal[]>([]);
   const [permNotes, setPermNotesState] = useState<PermNote[]>([]);
+  const [namazTimes, setNamazTimes] = useState<NamazTimes>({ fajr: "05:30", dhuhr: "13:30", asr: "16:45", maghrib: "18:20", isha: "20:00" });
+  const [extraSettings, setExtraSettings] = useState<ExtraSettings>({ dailyLimit: 500, monthlyLimit: 15000, sleepTime: "22:00" });
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [loading, setLoading] = useState(true);
