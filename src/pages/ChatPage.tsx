@@ -216,6 +216,110 @@ const ChatPage = () => {
     return d.toLocaleDateString("bn-BD", { day: "numeric", month: "short" }) + " সক্রিয়";
   };
 
+  // ===== GROUP CHAT FUNCTIONS =====
+  const loadGroups = useCallback(async () => {
+    if (!currentUserId) return;
+    const { data: memberOf } = await supabase
+      .from("chat_group_members" as any)
+      .select("group_id")
+      .eq("user_id", currentUserId);
+    if (!memberOf || memberOf.length === 0) { setGroups([]); return; }
+    const groupIds = (memberOf as any[]).map((m: any) => m.group_id);
+    const { data: groupsData } = await supabase
+      .from("chat_groups" as any)
+      .select("*")
+      .in("id", groupIds)
+      .order("updated_at", { ascending: false });
+    if (groupsData) {
+      // Get last message for each group
+      const enriched: ChatGroup[] = [];
+      for (const g of groupsData as any[]) {
+        const { data: lastMsg } = await supabase
+          .from("group_messages" as any)
+          .select("content, created_at")
+          .eq("group_id", g.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const { count } = await supabase
+          .from("chat_group_members" as any)
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", g.id);
+        enriched.push({
+          ...g,
+          member_count: count || 0,
+          last_message: lastMsg?.[0]?.content || "",
+          last_message_time: lastMsg?.[0]?.created_at || g.created_at,
+        });
+      }
+      setGroups(enriched);
+    }
+  }, [currentUserId]);
+
+  useEffect(() => { loadGroups(); }, [loadGroups]);
+
+  const createGroup = async () => {
+    if (!newGroupName.trim() || selectedMembers.length === 0) {
+      toast.error("গ্রুপের নাম দিন এবং সদস্য সিলেক্ট করুন");
+      return;
+    }
+    const { data: group, error } = await supabase
+      .from("chat_groups" as any)
+      .insert({ name: newGroupName.trim(), created_by: currentUserId })
+      .select()
+      .single();
+    if (error || !group) { toast.error("গ্রুপ তৈরি ব্যর্থ"); return; }
+    const g = group as any;
+    // Add creator as member
+    const members = [currentUserId, ...selectedMembers].map(uid => ({
+      group_id: g.id,
+      user_id: uid,
+      role: uid === currentUserId ? "creator" : "member",
+    }));
+    await supabase.from("chat_group_members" as any).insert(members);
+    toast.success("গ্রুপ তৈরি হয়েছে!");
+    setShowCreateGroup(false);
+    setNewGroupName("");
+    setSelectedMembers([]);
+    await loadGroups();
+    setSelectedGroup({ ...g, member_count: members.length, last_message: "", last_message_time: g.created_at });
+    setChatMode("group");
+  };
+
+  const loadGroupMessages = useCallback(async () => {
+    if (!selectedGroup) return;
+    const { data } = await supabase
+      .from("group_messages" as any)
+      .select("*")
+      .eq("group_id", selectedGroup.id)
+      .order("created_at", { ascending: true });
+    if (data) setGroupMessages(data as any[]);
+  }, [selectedGroup]);
+
+  useEffect(() => { loadGroupMessages(); }, [loadGroupMessages]);
+  useEffect(() => { groupMsgEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [groupMessages]);
+
+  // Realtime for group messages
+  useEffect(() => {
+    if (!selectedGroup) return;
+    const channel = supabase.channel(`group-msgs-${selectedGroup.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "group_messages", filter: `group_id=eq.${selectedGroup.id}` }, (payload) => {
+        setGroupMessages(prev => [...prev, payload.new as GroupMessage]);
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedGroup]);
+
+  const sendGroupMessage = async (overrideContent?: string) => {
+    const content = overrideContent || newMessage.trim();
+    if (!content || !selectedGroup || !currentUserId) return;
+    if (!overrideContent) setNewMessage("");
+    await supabase.from("group_messages" as any).insert({ group_id: selectedGroup.id, sender_id: currentUserId, content });
+  };
+
+  const getProfileName = (userId: string) => {
+    const u = users.find(u => u.user_id === userId);
+    return u?.name || (userId === currentUserId ? "আপনি" : "অজানা");
+  };
+
   const filteredConversations = search
     ? conversations.filter(c => c.user.name.toLowerCase().includes(search.toLowerCase()))
     : conversations;
