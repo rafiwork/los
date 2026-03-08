@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getNamazTimes, saveNamazTimes, getExtraSettings, saveExtraSettings, type Habit, type NamazTimes, type ExtraSettings } from "@/lib/dataStore";
 import { getSoundSettings, saveSoundSettings, playNotificationSound, type SoundSettings } from "@/lib/soundManager";
+import TimeInput from "@/components/ui/time-input";
 
 interface Props {
   habitDefs: Habit[];
