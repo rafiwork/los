@@ -146,8 +146,12 @@ const DashboardPage = () => {
 
   // Refresh monthly expense when date/expenses change
   useEffect(() => {
-    getMonthlyExpenses().then(setMonthlyExpense);
-  }, [data.expenses]);
+    if (isImpersonating) {
+      getMonthlyExpensesForUser(impersonateUserId).then(setMonthlyExpense);
+    } else {
+      getMonthlyExpenses().then(setMonthlyExpense);
+    }
+  }, [data.expenses, isImpersonating, impersonateUserId]);
 
   const updateData = useCallback((partial: Partial<DayData>) => {
     if (isImpersonating) return; // Read-only in impersonation mode
