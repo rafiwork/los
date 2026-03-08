@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { DayData, Goal, PermNote, NamazTimes, ExtraSettings } from "./types";
+import type { Json } from "@/integrations/supabase/types";
 
 export type { DayData, Goal, PermNote, NamazTimes, ExtraSettings };
 export type { Task, Expense, Notebook, Habit, Transaction } from "./types";
@@ -15,7 +16,6 @@ export interface UserProfile {
   hobby?: string;
 }
 
-// Auth functions
 export async function signUp(email: string, password: string, name: string) {
   const { data, error } = await supabase.auth.signUp({
     email, password,
@@ -25,8 +25,7 @@ export async function signUp(email: string, password: string, name: string) {
 }
 
 export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  return { data, error };
+  return await supabase.auth.signInWithPassword({ email, password });
 }
 
 export async function signOut() {
@@ -50,13 +49,13 @@ export async function updateProfile(profile: UserProfile) {
   }).eq('user_id', user.id);
 }
 
-// Day data
 export async function saveDayData(date: string, data: DayData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   await supabase.from('user_data').upsert({
-    user_id: user.id, date_key: date,
-    data_content: data as unknown as Record<string, unknown>,
+    user_id: user.id,
+    date_key: date,
+    data_content: data as unknown as Json,
   }, { onConflict: 'user_id,date_key' });
 }
 
@@ -67,7 +66,6 @@ export async function loadDayData(date: string): Promise<DayData | null> {
   return data ? (data.data_content as unknown as DayData) : null;
 }
 
-// Settings (goals, perm_notes, namaz_times, extra_settings)
 async function getSettings() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -83,7 +81,7 @@ export async function getGoals(): Promise<Goal[]> {
 export async function saveGoals(goals: Goal[]) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  await supabase.from('user_settings').update({ goals: goals as unknown as Record<string, unknown>[] }).eq('user_id', user.id);
+  await supabase.from('user_settings').update({ goals: goals as unknown as Json }).eq('user_id', user.id);
 }
 
 export async function getPermNotes(): Promise<PermNote[]> {
@@ -94,7 +92,7 @@ export async function getPermNotes(): Promise<PermNote[]> {
 export async function savePermNotes(notes: PermNote[]) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  await supabase.from('user_settings').update({ perm_notes: notes as unknown as Record<string, unknown>[] }).eq('user_id', user.id);
+  await supabase.from('user_settings').update({ perm_notes: notes as unknown as Json }).eq('user_id', user.id);
 }
 
 export async function getNamazTimes(): Promise<NamazTimes> {
@@ -105,7 +103,7 @@ export async function getNamazTimes(): Promise<NamazTimes> {
 export async function saveNamazTimes(times: NamazTimes) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  await supabase.from('user_settings').update({ namaz_times: times as unknown as Record<string, unknown> }).eq('user_id', user.id);
+  await supabase.from('user_settings').update({ namaz_times: times as unknown as Json }).eq('user_id', user.id);
 }
 
 export async function getExtraSettings(): Promise<ExtraSettings> {
@@ -116,7 +114,7 @@ export async function getExtraSettings(): Promise<ExtraSettings> {
 export async function saveExtraSettings(settings: ExtraSettings) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  await supabase.from('user_settings').update({ extra_settings: settings as unknown as Record<string, unknown> }).eq('user_id', user.id);
+  await supabase.from('user_settings').update({ extra_settings: settings as unknown as Json }).eq('user_id', user.id);
 }
 
 export function getTodayStr(): string {
