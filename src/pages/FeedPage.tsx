@@ -572,8 +572,17 @@ const FeedPage = () => {
     }
   };
 
+  // Close reaction picker & menus on outside click (mobile support)
+  useEffect(() => {
+    const handler = () => {
+      setReportMenuPostId(null);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, []);
+
   return (
-    <div className="bg-background min-h-screen flex flex-col overflow-x-hidden">
+    <div className="bg-background min-h-screen flex flex-col overflow-x-hidden" onClick={() => { if (showReactionPicker) setShowReactionPicker(null); }}>
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border p-3 shadow-sm">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
