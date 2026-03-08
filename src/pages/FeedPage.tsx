@@ -829,7 +829,7 @@ const FeedPage = () => {
                   >
                     {/* Reaction Picker */}
                     {showReactionPicker === post.id && (
-                      <div className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-2xl shadow-lg px-2 py-1.5 flex gap-1 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div onClick={(e) => e.stopPropagation()} className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-2xl shadow-lg px-2 py-1.5 flex gap-1 z-50 animate-in fade-in zoom-in-95 duration-150">
                         {REACTIONS.map(r => (
                           <button
                             key={r.type}
