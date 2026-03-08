@@ -25,6 +25,20 @@ interface Comment {
   replies?: Comment[];
 }
 
+const REACTIONS = [
+  { type: "like", emoji: "👍", label: "লাইক" },
+  { type: "love", emoji: "❤️", label: "ভালোবাসা" },
+  { type: "haha", emoji: "😂", label: "হাহা" },
+  { type: "wow", emoji: "😮", label: "ওয়াও" },
+  { type: "sad", emoji: "😢", label: "কষ্ট" },
+  { type: "angry", emoji: "😡", label: "রাগ" },
+];
+
+interface PostReaction {
+  user_id: string;
+  reaction_type: string;
+}
+
 interface Post {
   id: string;
   user_id: string;
@@ -35,6 +49,8 @@ interface Post {
   likes_count: number;
   comments_count: number;
   liked_by_me: boolean;
+  my_reaction: string | null;
+  reactions: PostReaction[];
 }
 
 const CATEGORIES = [
@@ -62,6 +78,8 @@ const FeedPage = () => {
   const [replyInput, setReplyInput] = useState("");
   const [profiles, setProfiles] = useState<Record<string, PostProfile>>({});
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [showReactedBy, setShowReactedBy] = useState<string | null>(null);
   const replyInputRef = useRef<HTMLInputElement>(null);
 
   // Init
@@ -100,7 +118,7 @@ const FeedPage = () => {
     const postIds = postsData.map(p => p.id);
     const { data: likesData } = await supabase
       .from("post_likes")
-      .select("post_id, user_id")
+      .select("post_id, user_id, reaction_type")
       .in("post_id", postIds);
 
     // Get comments counts
@@ -121,13 +139,16 @@ const FeedPage = () => {
     const enriched: Post[] = postsData.map(p => {
       const postLikes = likesData?.filter(l => l.post_id === p.id) || [];
       const postComments = commentsData?.filter(c => c.post_id === p.id) || [];
+      const myReaction = postLikes.find(l => l.user_id === currentUserId);
       return {
         ...p,
         category: p.category || "general",
         profile: profiles[p.user_id],
         likes_count: postLikes.length,
         comments_count: postComments.length,
-        liked_by_me: postLikes.some(l => l.user_id === currentUserId),
+        liked_by_me: !!myReaction,
+        my_reaction: myReaction?.reaction_type || null,
+        reactions: postLikes.map(l => ({ user_id: l.user_id, reaction_type: l.reaction_type || 'like' })),
       };
     });
 
@@ -207,12 +228,18 @@ const FeedPage = () => {
     setPosting(false);
   };
 
-  // Like/unlike post
-  const toggleLike = async (post: Post) => {
-    if (post.liked_by_me) {
+  // React to post
+  const reactToPost = async (post: Post, reactionType: string) => {
+    setShowReactionPicker(null);
+    if (post.my_reaction === reactionType) {
+      // Remove reaction
       await supabase.from("post_likes").delete().eq("post_id", post.id).eq("user_id", currentUserId);
+    } else if (post.liked_by_me) {
+      // Change reaction
+      await supabase.from("post_likes").update({ reaction_type: reactionType } as any).eq("post_id", post.id).eq("user_id", currentUserId);
     } else {
-      await supabase.from("post_likes").insert({ post_id: post.id, user_id: currentUserId });
+      // New reaction
+      await supabase.from("post_likes").insert({ post_id: post.id, user_id: currentUserId, reaction_type: reactionType } as any);
       trackInterest(post.category);
     }
   };
@@ -443,10 +470,24 @@ const FeedPage = () => {
                   <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
                 </div>
 
-                {/* Stats */}
+                {/* Reaction Stats */}
                 {(post.likes_count > 0 || post.comments_count > 0) && (
-                  <div className="px-4 pb-2 flex items-center gap-4 text-[11px] text-muted-foreground">
-                    {post.likes_count > 0 && <span>❤️ {post.likes_count}</span>}
+                  <div className="px-4 pb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      {post.likes_count > 0 && (
+                        <button onClick={() => setShowReactedBy(showReactedBy === post.id ? null : post.id)} className="flex items-center gap-1 hover:underline transition">
+                          {/* Show unique reaction emojis */}
+                          {(() => {
+                            const types = [...new Set(post.reactions.map(r => r.reaction_type))];
+                            return types.slice(0, 3).map(t => {
+                              const r = REACTIONS.find(rx => rx.type === t);
+                              return <span key={t} className="text-sm -mr-1">{r?.emoji || "👍"}</span>;
+                            });
+                          })()}
+                          <span className="ml-1.5">{post.likes_count}</span>
+                        </button>
+                      )}
+                    </div>
                     {post.comments_count > 0 && (
                       <button onClick={() => toggleComments(post.id)} className="hover:text-primary transition">
                         💬 {post.comments_count}টি মন্তব্য
@@ -455,16 +496,67 @@ const FeedPage = () => {
                   </div>
                 )}
 
+                {/* Who Reacted Popup */}
+                {showReactedBy === post.id && post.reactions.length > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="bg-secondary border border-border rounded-xl p-3 space-y-1.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-black text-foreground">রিয়্যাক্ট করেছেন</span>
+                        <button onClick={() => setShowReactedBy(null)} className="text-muted-foreground text-xs hover:text-destructive">✕</button>
+                      </div>
+                      {REACTIONS.map(reaction => {
+                        const users = post.reactions.filter(r => r.reaction_type === reaction.type);
+                        if (users.length === 0) return null;
+                        return (
+                          <div key={reaction.type} className="flex items-center gap-2">
+                            <span className="text-base">{reaction.emoji}</span>
+                            <div className="flex flex-wrap gap-1 flex-1">
+                              {users.map(u => (
+                                <span key={u.user_id} className="text-[10px] bg-card border border-border rounded-full px-2 py-0.5 font-bold text-foreground">
+                                  {profiles[u.user_id]?.name || "অজানা"}
+                                </span>
+                              ))}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground font-bold">{users.length}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Actions */}
-                <div className="border-t border-border flex">
-                  <button
-                    onClick={() => toggleLike(post)}
-                    className={`flex-1 py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 transition hover:bg-secondary/50 ${
-                      post.liked_by_me ? "text-red-500" : "text-muted-foreground"
-                    }`}
-                  >
-                    {post.liked_by_me ? "❤️" : "🤍"} লাইক
-                  </button>
+                <div className="border-t border-border flex relative">
+                  <div className="flex-1 relative">
+                    {/* Reaction Picker */}
+                    {showReactionPicker === post.id && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-card border border-border rounded-2xl shadow-lg px-2 py-1.5 flex gap-1 z-50 animate-in fade-in zoom-in-95 duration-150">
+                        {REACTIONS.map(r => (
+                          <button
+                            key={r.type}
+                            onClick={() => reactToPost(post, r.type)}
+                            className="text-2xl hover:scale-125 transition-transform active:scale-95 p-1"
+                            title={r.label}
+                          >
+                            {r.emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => post.liked_by_me ? reactToPost(post, post.my_reaction!) : setShowReactionPicker(showReactionPicker === post.id ? null : post.id)}
+                      onMouseEnter={() => !post.liked_by_me && setShowReactionPicker(post.id)}
+                      onMouseLeave={() => setTimeout(() => setShowReactionPicker(prev => prev === post.id ? null : prev), 800)}
+                      className={`w-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 transition hover:bg-secondary/50 ${
+                        post.liked_by_me ? "text-primary" : "text-muted-foreground"
+                      }`}
+                    >
+                      {post.liked_by_me
+                        ? <>{REACTIONS.find(r => r.type === post.my_reaction)?.emoji || "👍"} {REACTIONS.find(r => r.type === post.my_reaction)?.label || "লাইক"}</>
+                        : <>👍 লাইক</>
+                      }
+                    </button>
+                  </div>
                   <button
                     onClick={() => toggleComments(post.id)}
                     className="flex-1 py-2.5 text-sm font-bold text-muted-foreground flex items-center justify-center gap-1.5 transition hover:bg-secondary/50 border-l border-border"
