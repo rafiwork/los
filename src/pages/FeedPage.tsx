@@ -500,6 +500,68 @@ const FeedPage = () => {
     setDeletePostId(null);
   };
 
+  // Report post
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportSending, setReportSending] = useState(false);
+  const [reportMenuPostId, setReportMenuPostId] = useState<string | null>(null);
+
+  // My reports with admin replies
+  const [myReports, setMyReports] = useState<any[]>([]);
+  const [showMyReports, setShowMyReports] = useState(false);
+  const [replyToReportId, setReplyToReportId] = useState<string | null>(null);
+  const [reportReplyText, setReportReplyText] = useState("");
+
+  const loadMyReports = async () => {
+    if (!currentUserId) return;
+    const { data } = await supabase.from("reports").select("*").eq("reporter_id", currentUserId).order("created_at", { ascending: false });
+    if (data) {
+      // Load replies for each report
+      const reportIds = data.map(r => r.id);
+      const { data: replies } = await supabase.from("report_replies" as any).select("*").in("report_id", reportIds).order("created_at", { ascending: true });
+      const enriched = data.map(r => ({
+        ...r,
+        replies: (replies as any[] || []).filter((rep: any) => rep.report_id === r.id),
+      }));
+      setMyReports(enriched);
+    }
+  };
+
+  const submitReport = async () => {
+    if (!reportPostId || !reportReason.trim() || !currentUserId) return;
+    setReportSending(true);
+    const post = posts.find(p => p.id === reportPostId);
+    await supabase.from("reports").insert({
+      reporter_id: currentUserId,
+      reported_id: post?.user_id || currentUserId,
+      reason: reportReason.trim(),
+      post_id: reportPostId,
+    } as any);
+    toast.success("রিপোর্ট সফলভাবে জমা হয়েছে!");
+    setReportPostId(null);
+    setReportReason("");
+    setReportSending(false);
+  };
+
+  const sendReportReply = async (reportId: string) => {
+    if (!reportReplyText.trim() || !currentUserId) return;
+    await supabase.from("report_replies" as any).insert({
+      report_id: reportId,
+      user_id: currentUserId,
+      message: reportReplyText.trim(),
+      is_admin: false,
+    });
+    setReportReplyText("");
+    setReplyToReportId(null);
+    loadMyReports();
+    toast.success("রিপ্লাই পাঠানো হয়েছে!");
+  };
+
+  // Load my reports on mount
+  useEffect(() => {
+    if (currentUserId) loadMyReports();
+  }, [currentUserId]);
+
   const displayPosts = posts;
 
   const timeAgo = (date: string) => {
