@@ -25,6 +25,20 @@ interface Comment {
   replies?: Comment[];
 }
 
+const REACTIONS = [
+  { type: "like", emoji: "👍", label: "লাইক" },
+  { type: "love", emoji: "❤️", label: "ভালোবাসা" },
+  { type: "haha", emoji: "😂", label: "হাহা" },
+  { type: "wow", emoji: "😮", label: "ওয়াও" },
+  { type: "sad", emoji: "😢", label: "কষ্ট" },
+  { type: "angry", emoji: "😡", label: "রাগ" },
+];
+
+interface PostReaction {
+  user_id: string;
+  reaction_type: string;
+}
+
 interface Post {
   id: string;
   user_id: string;
@@ -35,6 +49,8 @@ interface Post {
   likes_count: number;
   comments_count: number;
   liked_by_me: boolean;
+  my_reaction: string | null;
+  reactions: PostReaction[];
 }
 
 const CATEGORIES = [
