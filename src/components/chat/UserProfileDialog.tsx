@@ -18,6 +18,14 @@ interface Profile {
   hobby?: string | null;
   dob?: string | null;
   address?: string | null;
+  intro?: string | null;
+  work?: string | null;
+  website?: string | null;
+  social_link?: string | null;
+  hide_email?: boolean;
+  hide_mobile?: boolean;
+  is_online?: boolean;
+  last_seen?: string | null;
 }
 
 interface Props {
@@ -42,19 +50,25 @@ const InfoRow = ({ icon, label, value }: { icon: string; label: string; value?: 
 const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   useEffect(() => {
     if (!userId || !open) return;
     setLoading(true);
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .single()
-      .then(({ data }) => {
-        if (data) setProfile(data as Profile);
-        setLoading(false);
-      });
+
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsOwnProfile(user?.id === userId);
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+      if (data) setProfile(data as unknown as Profile);
+      setLoading(false);
+    };
+    load();
   }, [userId, open]);
 
   const formatDate = (dateStr?: string | null) => {
@@ -70,6 +84,26 @@ const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
     }
   };
 
+  const formatLastSeen = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) return "এইমাত্র";
+      if (diffMin < 60) return `${diffMin} মিনিট আগে`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr} ঘন্টা আগে`;
+      return d.toLocaleDateString("bn-BD", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return null;
+    }
+  };
+
+  const showEmail = isOwnProfile || !profile?.hide_email;
+  const showMobile = isOwnProfile || !profile?.hide_mobile;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm rounded-3xl p-0 overflow-hidden border-0">
@@ -80,35 +114,54 @@ const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
           </div>
         ) : (
           <>
-            {/* Header with gradient */}
-            <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-transparent pt-8 pb-6 px-6 text-center">
-              <Avatar className="w-20 h-20 mx-auto mb-3 border-4 border-background shadow-lg">
+            {/* Header */}
+            <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-transparent pt-8 pb-6 px-6 text-center relative">
+              <Avatar className="w-20 h-20 mx-auto mb-3 border-4 border-background shadow-lg relative">
                 <AvatarFallback className="bg-primary text-primary-foreground text-2xl font-black">
                   {profile.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
+              {/* Online indicator */}
+              {profile.is_online ? (
+                <span className="absolute top-[88px] left-1/2 translate-x-[18px] w-4 h-4 bg-green-500 border-2 border-background rounded-full" />
+              ) : null}
               <DialogHeader>
                 <DialogTitle className="text-xl font-black text-foreground">
                   {profile.name}
                 </DialogTitle>
               </DialogHeader>
-              <p className="text-xs text-muted-foreground font-semibold mt-1">{profile.email}</p>
+              {/* Online status text */}
+              <p className={`text-xs font-bold mt-1 ${profile.is_online ? 'text-green-500' : 'text-muted-foreground'}`}>
+                {profile.is_online ? '🟢 অনলাইন' : `⚫ ${formatLastSeen(profile.last_seen) || 'অফলাইন'}`}
+              </p>
+              {profile.intro && (
+                <p className="text-xs text-muted-foreground font-semibold mt-2 italic">"{profile.intro}"</p>
+              )}
             </div>
 
-            {/* Info section */}
+            {/* Info */}
             <div className="px-5 pb-6 space-y-2">
-              <InfoRow icon="📱" label="মোবাইল" value={profile.mobile} />
+              {showEmail && <InfoRow icon="✉️" label="ইমেইল" value={profile.email} />}
+              {showMobile && <InfoRow icon="📱" label="মোবাইল" value={profile.mobile} />}
+              <InfoRow icon="💼" label="কর্মস্থল / পেশা" value={profile.work} />
               <InfoRow icon="🩸" label="রক্তের গ্রুপ" value={profile.blood_group} />
               <InfoRow icon="🎓" label="শিক্ষা প্রতিষ্ঠান" value={profile.institution} />
               <InfoRow icon="🎯" label="শখ" value={profile.hobby} />
               <InfoRow icon="🎂" label="জন্ম তারিখ" value={formatDate(profile.dob)} />
+              <InfoRow icon="🌐" label="ওয়েবসাইট" value={profile.website} />
+              <InfoRow icon="🔗" label="সোশ্যাল লিংক" value={profile.social_link} />
               <InfoRow icon="📍" label="ঠিকানা" value={profile.address} />
 
-              {!profile.mobile && !profile.blood_group && !profile.institution && !profile.hobby && !profile.dob && !profile.address && (
-                <p className="text-center text-muted-foreground text-sm py-4 font-semibold">
-                  কোনো অতিরিক্ত তথ্য যুক্ত করা হয়নি
-                </p>
-              )}
+              {/* No extra info message */}
+              {(() => {
+                const hasAny = (showEmail && profile.email) || (showMobile && profile.mobile) || profile.work || profile.blood_group || profile.institution || profile.hobby || profile.dob || profile.website || profile.social_link || profile.address;
+                if (hasAny) return null;
+                return (
+                  <p className="text-center text-muted-foreground text-sm py-4 font-semibold">
+                    কোনো অতিরিক্ত তথ্য যুক্ত করা হয়নি
+                  </p>
+                );
+              })()}
             </div>
           </>
         )}
