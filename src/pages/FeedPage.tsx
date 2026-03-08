@@ -112,6 +112,8 @@ const FeedPage = () => {
   const [userStatus, setUserStatus] = useState<{ status: string; suspend_reason: string | null }>({ status: "active", suspend_reason: null });
   const [appealMessage, setAppealMessage] = useState("");
   const [appealSent, setAppealSent] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Init
   useEffect(() => {
