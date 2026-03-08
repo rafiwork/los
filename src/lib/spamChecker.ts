@@ -20,82 +20,23 @@ export function checkSpam(content: string, spamWords: string[]): string | null {
 }
 
 export async function recordViolation(userId: string, word: string, contentType: string, contentId?: string): Promise<{ banned: boolean; banDays: number; permanent: boolean; warningOnly: boolean }> {
-  // Record violation
-  await supabase.from("spam_violations" as any).insert({
-    user_id: userId,
-    word_matched: word,
-    content_type: contentType,
-    content_id: contentId || null,
-  });
-
-  // Get or create ban record
-  const { data: banData } = await supabase.from("spam_bans" as any).select("*").eq("user_id", userId).single();
-  
-  const currentCount = (banData as any)?.violation_count || 0;
-  const newCount = currentCount + 1;
-
-  // Escalation logic: 3 strikes -> 3 days, next -> 7 days, next -> permanent
-  let banDays = 0;
-  let permanent = false;
-  let banned = false;
-
-  if (newCount >= 3 && newCount < 6) {
-    banDays = 3;
-    banned = true;
-  } else if (newCount >= 6 && newCount < 9) {
-    banDays = 7;
-    banned = true;
-  } else if (newCount >= 9) {
-    permanent = true;
-    banned = true;
-  }
-
-  const banUntil = banned && !permanent ? new Date(Date.now() + banDays * 86400000).toISOString() : null;
-
-  if (banData) {
-    await supabase.from("spam_bans" as any).update({
-      violation_count: newCount,
-      ban_until: banUntil,
-      is_permanent: permanent,
-      updated_at: new Date().toISOString(),
-    }).eq("user_id", userId);
-  } else {
-    await supabase.from("spam_bans" as any).insert({
-      user_id: userId,
-      violation_count: newCount,
-      ban_until: banUntil,
-      is_permanent: permanent,
+  try {
+    const session = (await supabase.auth.getSession()).data.session;
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/record-spam-violation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ word, contentType, contentId: contentId || null }),
     });
-  }
-
-  // Send warning notification to user
-  const warningMsg = banned
-    ? permanent
-      ? `আপনি বারবার স্প্যাম ওয়ার্ড ব্যবহার করেছেন। আপনার পোস্ট ও কমেন্ট করার অধিকার স্থায়ীভাবে বন্ধ করা হয়েছে। আনলক করতে আবেদন করুন।`
-      : `আপনি স্প্যাম ওয়ার্ড ব্যবহার করেছেন। ${banDays} দিনের জন্য আপনি পোস্ট বা কমেন্ট করতে পারবেন না।`
-    : `⚠️ সতর্কতা: "${word}" স্প্যাম ওয়ার্ড হিসেবে চিহ্নিত। বারবার ব্যবহার করলে আপনার পোস্ট/কমেন্ট করার অধিকার বন্ধ হয়ে যাবে। (${newCount}/3)`;
-
-  await supabase.from("admin_notifications" as any).insert({
-    user_id: userId,
-    title: banned ? "🚫 স্প্যাম ব্যান" : "⚠️ স্প্যাম সতর্কতা",
-    message: warningMsg,
-    type: banned ? "warning" : "info",
-  });
-
-  // Notify admins
-  const { data: adminRoles } = await supabase.from("user_roles" as any).select("user_id").eq("role", "admin");
-  if (adminRoles) {
-    for (const admin of adminRoles as any[]) {
-      await supabase.from("admin_notifications" as any).insert({
-        user_id: admin.user_id,
-        title: `🚨 স্প্যাম ডিটেক্টেড`,
-        message: `একজন ইউজার "${word}" স্প্যাম ওয়ার্ড ব্যবহার করেছে (মোট: ${newCount} বার)${banned ? ` — ${permanent ? "স্থায়ী ব্যান" : `${banDays} দিনের ব্যান`}` : ""}`,
-        type: "warning",
-      });
+    if (res.ok) {
+      return await res.json();
     }
+  } catch {
+    // fallback
   }
-
-  return { banned, banDays, permanent, warningOnly: !banned };
+  return { banned: false, banDays: 0, permanent: false, warningOnly: true };
 }
 
 export async function isSpamBanned(userId: string): Promise<{ banned: boolean; permanent: boolean; banUntil: string | null }> {

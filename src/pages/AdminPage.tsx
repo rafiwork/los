@@ -51,6 +51,7 @@ const AdminPage = () => {
   const [reportReplyText, setReportReplyText] = useState("");
   const [replyingReportId, setReplyingReportId] = useState<string | null>(null);
   const [reportAdminNote, setReportAdminNote] = useState("");
+  const [reportFilter, setReportFilter] = useState("");
 
   useEffect(() => {
     const check = async () => {
@@ -464,7 +465,7 @@ const AdminPage = () => {
               {["all", "pending", "resolved", "closed"].map(f => {
                 const count = f === "all" ? reports.length : reports.filter(r => r.status === f).length;
                 return (
-                  <button key={f} onClick={() => setSearch(f === "all" ? "" : f)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${search === f || (f === "all" && !search) ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>
+                  <button key={f} onClick={() => setReportFilter(f === "all" ? "" : f)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${reportFilter === f || (f === "all" && !reportFilter) ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>
                     {f === "all" ? "সব" : f === "pending" ? "⏳ অপেক্ষমান" : f === "resolved" ? "✅ সমাধান" : "❌ বন্ধ"} ({count})
                   </button>
                 );
@@ -478,7 +479,7 @@ const AdminPage = () => {
             ) : (
               <div className="space-y-3">
                 {reports
-                  .filter(r => !search || search === "all" || r.status === search)
+                  .filter(r => !reportFilter || reportFilter === "all" || r.status === reportFilter)
                   .map((report: any) => {
                   const reporter = users.find(u => u.user_id === report.reporter_id);
                   const reported = users.find(u => u.user_id === report.reported_id);
