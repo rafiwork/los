@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { bn } from "date-fns/locale";
+import { getMyStatus } from "@/lib/adminStore";
 
 interface PostProfile {
   name: string;
