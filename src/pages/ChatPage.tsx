@@ -160,10 +160,15 @@ const ChatPage = () => {
             {selectedUser ? (
               <span className="flex items-center gap-2">
                 <button onClick={() => { setSelectedUser(null); setShowUserList(true); }} className="md:hidden text-muted-foreground text-sm">←</button>
-                <span
-                  className="hover:text-primary cursor-pointer transition"
-                  onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}
-                >{selectedUser.name}</span>
+                <div>
+                  <span
+                    className="hover:text-primary cursor-pointer transition"
+                    onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}
+                  >{selectedUser.name}</span>
+                  <p className={`text-[11px] font-bold ${selectedUser.is_online ? 'text-green-500' : 'text-muted-foreground'}`}>
+                    {selectedUser.is_online ? '🟢 অনলাইন' : '⚫ অফলাইন'}
+                  </p>
+                </div>
               </span>
             ) : "চ্যাট"}
           </h1>
