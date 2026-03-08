@@ -5,6 +5,30 @@ import UserProfileDialog from "@/components/chat/UserProfileDialog";
 import { useCall } from "@/components/call/CallProvider";
 import { useIsMobile } from "@/hooks/use-mobile";
 import UserAvatar, { getAvatarColor } from "@/components/chat/UserAvatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
+
+interface ChatGroup {
+  id: string;
+  name: string;
+  description: string;
+  avatar_url: string;
+  created_by: string;
+  created_at: string;
+  member_count?: number;
+  last_message?: string;
+  last_message_time?: string;
+}
+
+interface GroupMessage {
+  id: string;
+  group_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
 
 interface Profile {
   user_id: string;
@@ -51,6 +75,16 @@ const ChatPage = () => {
   const { startCall } = useCall();
   const inputRef = useRef<HTMLInputElement>(null);
   const currentUserIdRef = useRef("");
+
+  // Group chat state
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<ChatGroup | null>(null);
+  const [groupMessages, setGroupMessages] = useState<GroupMessage[]>([]);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [chatMode, setChatMode] = useState<"dm" | "group">("dm");
+  const groupMsgEndRef = useRef<HTMLDivElement>(null);
 
   // Auth
   useEffect(() => {
@@ -182,6 +216,110 @@ const ChatPage = () => {
     return d.toLocaleDateString("bn-BD", { day: "numeric", month: "short" }) + " সক্রিয়";
   };
 
+  // ===== GROUP CHAT FUNCTIONS =====
+  const loadGroups = useCallback(async () => {
+    if (!currentUserId) return;
+    const { data: memberOf } = await supabase
+      .from("chat_group_members" as any)
+      .select("group_id")
+      .eq("user_id", currentUserId);
+    if (!memberOf || memberOf.length === 0) { setGroups([]); return; }
+    const groupIds = (memberOf as any[]).map((m: any) => m.group_id);
+    const { data: groupsData } = await supabase
+      .from("chat_groups" as any)
+      .select("*")
+      .in("id", groupIds)
+      .order("updated_at", { ascending: false });
+    if (groupsData) {
+      // Get last message for each group
+      const enriched: ChatGroup[] = [];
+      for (const g of groupsData as any[]) {
+        const { data: lastMsg } = await supabase
+          .from("group_messages" as any)
+          .select("content, created_at")
+          .eq("group_id", g.id)
+          .order("created_at", { ascending: false })
+          .limit(1) as any;
+        const { count } = await supabase
+          .from("chat_group_members" as any)
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", g.id) as any;
+        enriched.push({
+          ...g,
+          member_count: count || 0,
+          last_message: lastMsg?.[0]?.content || "",
+          last_message_time: lastMsg?.[0]?.created_at || g.created_at,
+        });
+      }
+      setGroups(enriched);
+    }
+  }, [currentUserId]);
+
+  useEffect(() => { loadGroups(); }, [loadGroups]);
+
+  const createGroup = async () => {
+    if (!newGroupName.trim() || selectedMembers.length === 0) {
+      toast.error("গ্রুপের নাম দিন এবং সদস্য সিলেক্ট করুন");
+      return;
+    }
+    const { data: group, error } = await supabase
+      .from("chat_groups" as any)
+      .insert({ name: newGroupName.trim(), created_by: currentUserId })
+      .select()
+      .single();
+    if (error || !group) { toast.error("গ্রুপ তৈরি ব্যর্থ"); return; }
+    const g = group as any;
+    // Add creator as member
+    const members = [currentUserId, ...selectedMembers].map(uid => ({
+      group_id: g.id,
+      user_id: uid,
+      role: uid === currentUserId ? "creator" : "member",
+    }));
+    await supabase.from("chat_group_members" as any).insert(members);
+    toast.success("গ্রুপ তৈরি হয়েছে!");
+    setShowCreateGroup(false);
+    setNewGroupName("");
+    setSelectedMembers([]);
+    await loadGroups();
+    setSelectedGroup({ ...g, member_count: members.length, last_message: "", last_message_time: g.created_at });
+    setChatMode("group");
+  };
+
+  const loadGroupMessages = useCallback(async () => {
+    if (!selectedGroup) return;
+    const { data } = await supabase
+      .from("group_messages" as any)
+      .select("*")
+      .eq("group_id", selectedGroup.id)
+      .order("created_at", { ascending: true });
+    if (data) setGroupMessages(data as any[]);
+  }, [selectedGroup]);
+
+  useEffect(() => { loadGroupMessages(); }, [loadGroupMessages]);
+  useEffect(() => { groupMsgEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [groupMessages]);
+
+  // Realtime for group messages
+  useEffect(() => {
+    if (!selectedGroup) return;
+    const channel = supabase.channel(`group-msgs-${selectedGroup.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "group_messages", filter: `group_id=eq.${selectedGroup.id}` }, (payload) => {
+        setGroupMessages(prev => [...prev, payload.new as GroupMessage]);
+      }).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedGroup]);
+
+  const sendGroupMessage = async (overrideContent?: string) => {
+    const content = overrideContent || newMessage.trim();
+    if (!content || !selectedGroup || !currentUserId) return;
+    if (!overrideContent) setNewMessage("");
+    await supabase.from("group_messages" as any).insert({ group_id: selectedGroup.id, sender_id: currentUserId, content });
+  };
+
+  const getProfileName = (userId: string) => {
+    const u = users.find(u => u.user_id === userId);
+    return u?.name || (userId === currentUserId ? "আপনি" : "অজানা");
+  };
+
   const filteredConversations = search
     ? conversations.filter(c => c.user.name.toLowerCase().includes(search.toLowerCase()))
     : conversations;
@@ -196,18 +334,28 @@ const ChatPage = () => {
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-[26px] font-black text-foreground tracking-tight">চ্যাট</h1>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => navigate("/dashboard")}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition-colors text-sm text-foreground"
-                  title="ড্যাশবোর্ড"
-                >
-                  🏠
-                </button>
-                <button className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition-colors text-sm">
-                  ✏️
-                </button>
-              </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => navigate("/dashboard")}
+                    className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition-colors text-sm text-foreground"
+                    title="ড্যাশবোর্ড"
+                  >
+                    🏠
+                  </button>
+                  <button
+                    onClick={() => navigate("/feed")}
+                    className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition-colors text-sm text-foreground"
+                    title="নিউজফিড"
+                  >
+                    📰
+                  </button>
+                  <button onClick={() => setShowCreateGroup(true)} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition-colors text-sm" title="গ্রুপ তৈরি">
+                    👥
+                  </button>
+                  <button className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition-colors text-sm">
+                    ✏️
+                  </button>
+                </div>
             </div>
             {/* Search */}
             <div className="relative">
@@ -224,80 +372,101 @@ const ChatPage = () => {
             </div>
           </div>
 
-          {/* Online strip */}
-          {users.filter(u => u.is_online).length > 0 && (
-            <div className="px-3 py-2.5 flex gap-2 overflow-x-auto no-scrollbar">
-              {users.filter(u => u.is_online).map(u => (
-                <button key={u.user_id} onClick={() => setSelectedUser(u)} className="flex flex-col items-center gap-1 min-w-[60px] group">
-                  <div className="relative">
-                    <UserAvatar name={u.name} avatarUrl={u.avatar_url} size={52} className="shadow-md group-hover:shadow-lg transition-shadow" />
-                    <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
+          {/* DM / Group Tabs */}
+          <div className="flex border-b border-border shrink-0">
+            <button onClick={() => { setChatMode("dm"); setSelectedGroup(null); }} className={`flex-1 py-2 text-sm font-bold transition ${chatMode === "dm" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}>💬 চ্যাট</button>
+            <button onClick={() => { setChatMode("group"); setSelectedUser(null); }} className={`flex-1 py-2 text-sm font-bold transition ${chatMode === "group" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}>👥 গ্রুপ</button>
+          </div>
+
+          {chatMode === "dm" ? (
+            <>
+              {/* Online strip */}
+              {users.filter(u => u.is_online).length > 0 && (
+                <div className="px-3 py-2.5 flex gap-2 overflow-x-auto no-scrollbar">
+                  {users.filter(u => u.is_online).map(u => (
+                    <button key={u.user_id} onClick={() => setSelectedUser(u)} className="flex flex-col items-center gap-1 min-w-[60px] group">
+                      <div className="relative">
+                        <UserAvatar name={u.name} avatarUrl={u.avatar_url} size={52} className="shadow-md group-hover:shadow-lg transition-shadow" />
+                        <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground group-hover:text-foreground truncate w-[60px] text-center transition-colors">{u.name.split(" ")[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Conversation List */}
+              <div className="flex-1 overflow-y-auto no-scrollbar">
+                {filteredConversations.map(conv => {
+                  const isSelected = selectedUser?.user_id === conv.user.user_id;
+                  return (
+                    <button
+                      key={conv.user.user_id}
+                      onClick={() => setSelectedUser(conv.user)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 mx-2 my-0.5 rounded-xl transition-all duration-150 ${isSelected ? 'bg-primary/10' : 'hover:bg-secondary/80'}`}
+                      style={{ width: 'calc(100% - 16px)' }}
+                    >
+                      <div className="relative shrink-0">
+                        <UserAvatar name={conv.user.name} avatarUrl={conv.user.avatar_url} size={48} />
+                        {conv.user.is_online && <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />}
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-[14px] truncate ${conv.unreadCount > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground'}`}>{conv.user.name}</p>
+                          {conv.lastMessageTime && <span className={`text-[11px] shrink-0 ${conv.unreadCount > 0 ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{formatTime(conv.lastMessageTime)}</span>}
+                        </div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {conv.lastMessage ? (
+                            <>
+                              {conv.isMine && <span className="text-muted-foreground text-[12px] shrink-0">আপনি:</span>}
+                              <p className={`text-[12px] truncate ${conv.unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{conv.lastMessage}</p>
+                            </>
+                          ) : (
+                            <p className="text-[12px] text-muted-foreground/50 italic">নতুন কথোপকথন শুরু করুন</p>
+                          )}
+                        </div>
+                      </div>
+                      {conv.unreadCount > 0 && <span className="min-w-[20px] h-5 px-1.5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">{conv.unreadCount > 99 ? "99+" : conv.unreadCount}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            /* Group List */
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+              {groups.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <div className="text-4xl mb-3">👥</div>
+                  <p className="text-sm font-bold">কোনো গ্রুপ নেই</p>
+                  <p className="text-xs mt-1">👥 বাটন দিয়ে নতুন গ্রুপ তৈরি করুন</p>
+                </div>
+              ) : groups.map(g => (
+                <button
+                  key={g.id}
+                  onClick={() => { setSelectedGroup(g); setSelectedUser(null); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 mx-2 my-0.5 rounded-xl transition-all duration-150 ${selectedGroup?.id === g.id ? 'bg-primary/10' : 'hover:bg-secondary/80'}`}
+                  style={{ width: 'calc(100% - 16px)' }}
+                >
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-xl shrink-0">👥</div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[14px] font-bold text-foreground truncate">{g.name}</p>
+                      {g.last_message_time && <span className="text-[11px] text-muted-foreground shrink-0">{formatTime(g.last_message_time)}</span>}
+                    </div>
+                    <p className="text-[12px] text-muted-foreground truncate mt-0.5">
+                      {g.last_message || `${g.member_count} জন সদস্য`}
+                    </p>
                   </div>
-                  <span className="text-[11px] text-muted-foreground group-hover:text-foreground truncate w-[60px] text-center transition-colors">{u.name.split(" ")[0]}</span>
                 </button>
               ))}
             </div>
           )}
-
-          {/* Conversation List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar">
-            {filteredConversations.map(conv => {
-              const isSelected = selectedUser?.user_id === conv.user.user_id;
-              return (
-                <button
-                  key={conv.user.user_id}
-                  onClick={() => setSelectedUser(conv.user)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 mx-2 my-0.5 rounded-xl transition-all duration-150 ${
-                    isSelected
-                      ? 'bg-primary/10'
-                      : 'hover:bg-secondary/80'
-                  }`}
-                  style={{ width: 'calc(100% - 16px)' }}
-                >
-                  <div className="relative shrink-0">
-                    <UserAvatar name={conv.user.name} avatarUrl={conv.user.avatar_url} size={48} />
-                    {conv.user.is_online && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className={`text-[14px] truncate ${conv.unreadCount > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground'}`}>
-                        {conv.user.name}
-                      </p>
-                      {conv.lastMessageTime && (
-                        <span className={`text-[11px] shrink-0 ${conv.unreadCount > 0 ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
-                          {formatTime(conv.lastMessageTime)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      {conv.lastMessage ? (
-                        <>
-                          {conv.isMine && <span className="text-muted-foreground text-[12px] shrink-0">আপনি:</span>}
-                          <p className={`text-[12px] truncate ${conv.unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                            {conv.lastMessage}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-[12px] text-muted-foreground/50 italic">নতুন কথোপকথন শুরু করুন</p>
-                      )}
-                    </div>
-                  </div>
-                  {conv.unreadCount > 0 && (
-                    <span className="min-w-[20px] h-5 px-1.5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">
-                      {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {!selectedUser ? (
+          {!selectedUser && !selectedGroup ? (
             /* Empty state */
             <div className="flex-1 flex items-center justify-center bg-background">
               <div className="text-center max-w-md">
@@ -312,6 +481,74 @@ const ChatPage = () => {
                 </p>
               </div>
             </div>
+          ) : selectedGroup ? (
+            /* ===== GROUP CHAT VIEW ===== */
+            <>
+              <div className="h-[68px] flex items-center px-5 border-b border-border bg-card/80 backdrop-blur-sm shrink-0">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-xl shrink-0">👥</div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-[15px] text-foreground truncate leading-tight">{selectedGroup.name}</p>
+                    <p className="text-[12px] text-muted-foreground">{selectedGroup.member_count} জন সদস্য</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-5 no-scrollbar bg-background">
+                {groupMessages.length === 0 && (
+                  <div className="text-center py-20">
+                    <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-4xl mb-4">👥</div>
+                    <p className="font-bold text-foreground text-xl mb-1">{selectedGroup.name}</p>
+                    <p className="text-muted-foreground text-sm">গ্রুপ চ্যাটের শুরু</p>
+                  </div>
+                )}
+                {groupMessages.map((m, idx) => {
+                  const isMine = m.sender_id === currentUserId;
+                  const prevMsg = groupMessages[idx - 1];
+                  const sameSenderPrev = prevMsg && prevMsg.sender_id === m.sender_id;
+                  const isFirst = !sameSenderPrev;
+                  return (
+                    <div key={m.id} className={`${isFirst ? 'mt-3' : 'mt-[3px]'}`}>
+                      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                        {!isMine && isFirst && (
+                          <div className="w-7 mr-2 shrink-0 self-end">
+                            <UserAvatar name={getProfileName(m.sender_id)} size={28} />
+                          </div>
+                        )}
+                        {!isMine && !isFirst && <div className="w-7 mr-2 shrink-0" />}
+                        <div className="max-w-[55%]">
+                          {!isMine && isFirst && <p className="text-[11px] text-muted-foreground font-bold mb-0.5 ml-1">{getProfileName(m.sender_id)}</p>}
+                          <div className={`px-4 py-2 text-[15px] leading-relaxed rounded-[20px] ${isMine ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'}`}>
+                            <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={groupMsgEndRef} />
+              </div>
+              <div className="px-5 py-3 bg-card border-t border-border shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={e => setNewMessage(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendGroupMessage(); } }}
+                      placeholder="মেসেজ লিখুন..."
+                      className="w-full px-4 py-2.5 rounded-full bg-secondary border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/30 transition-all pr-10"
+                    />
+                  </div>
+                  {newMessage.trim() ? (
+                    <button onClick={() => sendGroupMessage()} className="w-9 h-9 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-all shrink-0">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                    </button>
+                  ) : (
+                    <button onClick={() => sendGroupMessage("👍")} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition-colors text-primary text-xl shrink-0">👍</button>
+                  )}
+                </div>
+              </div>
+            </>
           ) : (
             <>
               {/* Chat Header - Desktop */}
@@ -556,7 +793,7 @@ const ChatPage = () => {
   // ===== MOBILE LAYOUT =====
   return (
     <div className="bg-background min-h-screen flex flex-col">
-      {!selectedUser ? (
+      {!selectedUser && !selectedGroup ? (
         <div className="flex flex-col h-screen">
           {/* Mobile Header */}
           <div className="sticky top-0 z-30 bg-card px-4 pt-3 pb-2">
@@ -565,7 +802,11 @@ const ChatPage = () => {
                 <button onClick={() => navigate("/dashboard")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base">←</button>
                 <h1 className="text-2xl font-black text-foreground">চ্যাট</h1>
               </div>
-              <button className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base">✏️</button>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => navigate("/feed")} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base" title="নিউজফিড">📰</button>
+                <button onClick={() => setShowCreateGroup(true)} className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base" title="গ্রুপ তৈরি">👥</button>
+                <button className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary hover:bg-accent transition text-base">✏️</button>
+              </div>
             </div>
             <div className="relative">
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -578,59 +819,146 @@ const ChatPage = () => {
               />
             </div>
           </div>
-          {/* Online strip */}
-          {users.filter(u => u.is_online).length > 0 && (
-            <div className="px-3 py-2.5 flex gap-2 overflow-x-auto no-scrollbar border-b border-border/30">
-              {users.filter(u => u.is_online).map(u => (
-                <button key={u.user_id} onClick={() => setSelectedUser(u)} className="flex flex-col items-center gap-1 min-w-[56px]">
-                  <div className="relative">
-                    <UserAvatar name={u.name} avatarUrl={u.avatar_url} size={56} className="shadow-md" />
-                    <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
+          {/* DM / Group Tabs - Mobile */}
+          <div className="flex border-b border-border shrink-0">
+            <button onClick={() => { setChatMode("dm"); setSelectedGroup(null); }} className={`flex-1 py-2 text-sm font-bold transition ${chatMode === "dm" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}>💬 চ্যাট</button>
+            <button onClick={() => { setChatMode("group"); setSelectedUser(null); }} className={`flex-1 py-2 text-sm font-bold transition ${chatMode === "group" ? "text-primary border-b-2 border-primary" : "text-muted-foreground"}`}>👥 গ্রুপ</button>
+          </div>
+
+          {chatMode === "dm" ? (
+            <>
+              {/* Online strip */}
+              {users.filter(u => u.is_online).length > 0 && (
+                <div className="px-3 py-2.5 flex gap-2 overflow-x-auto no-scrollbar border-b border-border/30">
+                  {users.filter(u => u.is_online).map(u => (
+                    <button key={u.user_id} onClick={() => setSelectedUser(u)} className="flex flex-col items-center gap-1 min-w-[56px]">
+                      <div className="relative">
+                        <UserAvatar name={u.name} avatarUrl={u.avatar_url} size={56} className="shadow-md" />
+                        <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-green-500 border-2 border-card rounded-full" />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground truncate w-14 text-center">{u.name.split(" ")[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Conversations */}
+              <div className="flex-1 overflow-y-auto no-scrollbar">
+                {filteredConversations.map(conv => (
+                  <button key={conv.user.user_id} onClick={() => setSelectedUser(conv.user)}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/60 transition active:bg-secondary">
+                    <div className="relative shrink-0">
+                      <UserAvatar name={conv.user.name} avatarUrl={conv.user.avatar_url} size={56} />
+                      {conv.user.is_online && <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-[2.5px] border-card rounded-full" />}
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="flex items-center justify-between">
+                        <p className={`text-[15px] truncate ${conv.unreadCount > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground'}`}>{conv.user.name}</p>
+                        {conv.lastMessageTime && <span className={`text-[11px] shrink-0 ml-2 ${conv.unreadCount > 0 ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{formatTime(conv.lastMessageTime)}</span>}
+                      </div>
+                      {conv.lastMessage ? (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {conv.isMine && <span className="text-muted-foreground text-[12px] shrink-0">আপনি:</span>}
+                          <p className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{conv.lastMessage}</p>
+                        </div>
+                      ) : (
+                        <p className="text-[13px] text-muted-foreground/50 mt-0.5">মেসেজ পাঠান</p>
+                      )}
+                    </div>
+                    {conv.unreadCount > 0 && <span className="w-5 h-5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">{conv.unreadCount > 9 ? "9+" : conv.unreadCount}</span>}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            /* Group List - Mobile */
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+              {groups.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <div className="text-4xl mb-3">👥</div>
+                  <p className="text-sm font-bold">কোনো গ্রুপ নেই</p>
+                  <p className="text-xs mt-1">👥 বাটন দিয়ে নতুন গ্রুপ তৈরি করুন</p>
+                </div>
+              ) : groups.map(g => (
+                <button key={g.id} onClick={() => { setSelectedGroup(g); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/60 transition active:bg-secondary">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-2xl shrink-0">👥</div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[15px] font-bold text-foreground truncate">{g.name}</p>
+                      {g.last_message_time && <span className="text-[11px] text-muted-foreground shrink-0">{formatTime(g.last_message_time)}</span>}
+                    </div>
+                    <p className="text-[13px] text-muted-foreground truncate mt-0.5">{g.last_message || `${g.member_count} জন সদস্য`}</p>
                   </div>
-                  <span className="text-[11px] text-muted-foreground truncate w-14 text-center">{u.name.split(" ")[0]}</span>
                 </button>
               ))}
             </div>
           )}
-          {/* Conversations */}
-          <div className="flex-1 overflow-y-auto no-scrollbar">
-            {filteredConversations.map(conv => (
-              <button key={conv.user.user_id} onClick={() => setSelectedUser(conv.user)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/60 transition active:bg-secondary">
-                <div className="relative shrink-0">
-                  <UserAvatar name={conv.user.name} avatarUrl={conv.user.avatar_url} size={56} />
-                  {conv.user.is_online && <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-[2.5px] border-card rounded-full" />}
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center justify-between">
-                    <p className={`text-[15px] truncate ${conv.unreadCount > 0 ? 'font-bold text-foreground' : 'font-medium text-foreground'}`}>{conv.user.name}</p>
-                    {conv.lastMessageTime && <span className={`text-[11px] shrink-0 ml-2 ${conv.unreadCount > 0 ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{formatTime(conv.lastMessageTime)}</span>}
-                  </div>
-                  {conv.lastMessage ? (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      {conv.isMine && <span className="text-muted-foreground text-[12px] shrink-0">আপনি:</span>}
-                      <p className={`text-[13px] truncate ${conv.unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{conv.lastMessage}</p>
+        </div>
+      ) : selectedGroup ? (
+        /* Mobile Group Chat View */
+        <div className="flex flex-col h-screen">
+          <div className="sticky top-0 z-30 bg-card border-b border-border px-2 py-2 shadow-sm">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setSelectedGroup(null)} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition text-lg shrink-0">←</button>
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-lg shrink-0">👥</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-[14px] text-foreground truncate leading-tight">{selectedGroup.name}</p>
+                <p className="text-[11px] text-muted-foreground">{selectedGroup.member_count} জন সদস্য</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-4 no-scrollbar">
+            {groupMessages.length === 0 && (
+              <div className="text-center py-16">
+                <div className="text-4xl mb-3">👥</div>
+                <p className="font-bold text-foreground">{selectedGroup.name}</p>
+                <p className="text-sm text-muted-foreground">গ্রুপ চ্যাটের শুরু</p>
+              </div>
+            )}
+            {groupMessages.map((m, idx) => {
+              const isMine = m.sender_id === currentUserId;
+              const prevMsg = groupMessages[idx - 1];
+              const isFirst = !prevMsg || prevMsg.sender_id !== m.sender_id;
+              return (
+                <div key={m.id} className={`${isFirst ? 'mt-3' : 'mt-[3px]'}`}>
+                  <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                    {!isMine && isFirst && <div className="w-7 mr-2 shrink-0 self-end"><UserAvatar name={getProfileName(m.sender_id)} size={28} /></div>}
+                    {!isMine && !isFirst && <div className="w-7 mr-2 shrink-0" />}
+                    <div className="max-w-[70%]">
+                      {!isMine && isFirst && <p className="text-[11px] text-muted-foreground font-bold mb-0.5 ml-1">{getProfileName(m.sender_id)}</p>}
+                      <div className={`px-3.5 py-2 text-[14px] leading-relaxed rounded-[20px] ${isMine ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'}`}>
+                        <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-[13px] text-muted-foreground/50 mt-0.5">মেসেজ পাঠান</p>
-                  )}
+                  </div>
                 </div>
-                {conv.unreadCount > 0 && (
-                  <span className="w-5 h-5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">{conv.unreadCount > 9 ? "9+" : conv.unreadCount}</span>
-                )}
-              </button>
-            ))}
+              );
+            })}
+            <div ref={groupMsgEndRef} />
+          </div>
+          <div className="px-3 py-2 bg-card border-t border-border shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative">
+                <input type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendGroupMessage(); } }} placeholder="মেসেজ লিখুন..." className="w-full px-4 py-2.5 rounded-full bg-secondary border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground" />
+              </div>
+              {newMessage.trim() ? (
+                <button onClick={() => sendGroupMessage()} className="w-9 h-9 flex items-center justify-center rounded-full bg-primary text-primary-foreground shrink-0">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                </button>
+              ) : (
+                <button onClick={() => sendGroupMessage("👍")} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary text-primary text-xl shrink-0">👍</button>
+              )}
+            </div>
           </div>
         </div>
       ) : (
-        /* Mobile Chat View */
+        /* Mobile DM Chat View */
         <div className="flex flex-col h-screen">
           <div className="sticky top-0 z-30 bg-card border-b border-border px-2 py-2 shadow-sm">
             <div className="flex items-center gap-2">
               <button onClick={() => setSelectedUser(null)} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition text-lg shrink-0">←</button>
-              <button onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }} className="relative shrink-0">
-                <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={36} />
-                {selectedUser.is_online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-card rounded-full" />}
+              <button onClick={() => { setProfileUserId(selectedUser!.user_id); setProfileOpen(true); }} className="relative shrink-0">
+                <UserAvatar name={selectedUser!.name} avatarUrl={selectedUser!.avatar_url} size={36} />
+                {selectedUser!.is_online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-card rounded-full" />}
               </button>
               <div className="flex-1 min-w-0" onClick={() => { setProfileUserId(selectedUser.user_id); setProfileOpen(true); }}>
                 <p className="font-bold text-[14px] text-foreground truncate leading-tight">{selectedUser.name}</p>
@@ -779,6 +1107,51 @@ const ChatPage = () => {
         </div>
       )}
       <UserProfileDialog userId={profileUserId} open={profileOpen} onOpenChange={setProfileOpen} />
+
+      {/* Create Group Modal */}
+      <Dialog open={showCreateGroup} onOpenChange={setShowCreateGroup}>
+        <DialogContent className="max-w-sm rounded-3xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
+          <DialogHeader className="px-5 pt-5 pb-3">
+            <DialogTitle className="text-lg font-black flex items-center gap-2">👥 নতুন গ্রুপ তৈরি</DialogTitle>
+          </DialogHeader>
+          <div className="px-5 pb-5 space-y-4 overflow-y-auto">
+            <div>
+              <label className="text-sm font-bold text-foreground mb-1 block">গ্রুপের নাম</label>
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                placeholder="গ্রুপের নাম লিখুন..."
+                className="w-full px-4 py-2.5 rounded-xl bg-secondary border border-border outline-none text-sm text-foreground placeholder:text-muted-foreground focus:border-primary transition"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-foreground mb-2 block">সদস্য যোগ করুন ({selectedMembers.length} জন সিলেক্টেড)</label>
+              <ScrollArea className="h-[250px] rounded-xl border border-border">
+                <div className="p-2 space-y-1">
+                  {users.map(u => {
+                    const isSelected = selectedMembers.includes(u.user_id);
+                    return (
+                      <button
+                        key={u.user_id}
+                        onClick={() => setSelectedMembers(prev => isSelected ? prev.filter(id => id !== u.user_id) : [...prev, u.user_id])}
+                        className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition ${isSelected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary border border-transparent'}`}
+                      >
+                        <UserAvatar name={u.name} avatarUrl={u.avatar_url} size={36} />
+                        <span className="text-sm font-bold text-foreground flex-1 text-left truncate">{u.name}</span>
+                        {isSelected && <span className="text-primary text-lg">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+            <Button onClick={createGroup} disabled={!newGroupName.trim() || selectedMembers.length === 0} className="w-full rounded-xl font-bold">
+              গ্রুপ তৈরি করুন
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
