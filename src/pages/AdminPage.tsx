@@ -99,6 +99,14 @@ const AdminPage = () => {
       });
       setReportReplies(grouped);
     }
+    // Load site settings
+    const { data: siteSettings } = await supabase.from("site_settings" as any).select("*");
+    if (siteSettings) {
+      (siteSettings as any[]).forEach((s: any) => {
+        if (s.key === "site_logo") setSiteLogo(s.value || "");
+        if (s.key === "site_favicon") setSiteFavicon(s.value || "");
+      });
+    }
   }, []);
 
   const filteredUsers = users.filter(u =>
