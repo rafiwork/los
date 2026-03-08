@@ -313,8 +313,14 @@ const AdminPage = () => {
               ))}
             </div>
 
+            {/* Page info */}
+            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
+              <span>মোট {filteredUsers.length} জন ইউজার</span>
+              <span>পৃষ্ঠা {userPage}/{Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE))}</span>
+            </div>
+
             <div className="space-y-3">
-              {filteredUsers.map(user => (
+              {filteredUsers.slice((userPage - 1) * USERS_PER_PAGE, userPage * USERS_PER_PAGE).map(user => (
                 <div key={user.user_id} className="bg-card rounded-2xl p-4 border border-border shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -341,35 +347,15 @@ const AdminPage = () => {
 
                     <div className="flex flex-col gap-1.5 shrink-0">
                       {user.status !== "active" && (
-                        <button onClick={() => setActionModal({ type: "activate", user })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 text-xs font-bold hover:bg-emerald-500/25 transition">
-                          <Unlock size={12} /> সক্রিয়
-                        </button>
+                        <button onClick={() => setActionModal({ type: "activate", user })} className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 transition" title="সক্রিয় করুন"><Unlock size={14} /></button>
                       )}
-                      {user.status === "active" && (
-                        <>
-                          <button onClick={() => setActionModal({ type: "block", user })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 text-red-600 text-xs font-bold hover:bg-red-500/25 transition">
-                            <Ban size={12} /> ব্লক
-                          </button>
-                          <button onClick={() => setActionModal({ type: "suspend", user })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-600 text-xs font-bold hover:bg-amber-500/25 transition">
-                            <UserX size={12} /> সাসপেন্ড
-                          </button>
-                          <button onClick={() => setActionModal({ type: "lock", user })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/15 text-purple-600 text-xs font-bold hover:bg-purple-500/25 transition">
-                            <Lock size={12} /> লক
-                          </button>
-                        </>
-                      )}
-                      <button onClick={() => setActionModal({ type: "verify", user })} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${user.is_verified ? "bg-blue-500/15 text-blue-600 hover:bg-blue-500/25" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
-                        <BadgeCheck size={12} /> {user.is_verified ? "আনভেরিফাই" : "ভেরিফাই"}
-                      </button>
-                      <button onClick={() => setActionModal({ type: "notify", user })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-muted-foreground text-xs font-bold hover:text-foreground transition">
-                        <Bell size={12} /> নোটিফিকেশন
-                      </button>
-                      <button onClick={() => handleLoginAsUser(user)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/15 text-blue-600 text-xs font-bold hover:bg-blue-500/25 transition">
-                        <LogIn size={12} /> ঢুকুন
-                      </button>
-                      <button onClick={() => setActionModal({ type: "delete", user })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500/20 transition">
-                        <Trash2 size={12} /> ডিলেট
-                      </button>
+                      <button onClick={() => setActionModal({ type: "block", user })} className="p-2 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition" title="ব্লক"><Ban size={14} /></button>
+                      <button onClick={() => setActionModal({ type: "suspend", user })} className="p-2 rounded-xl bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 transition" title="সাসপেন্ড"><UserX size={14} /></button>
+                      <button onClick={() => setActionModal({ type: "lock", user })} className="p-2 rounded-xl bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 transition" title="লক"><Lock size={14} /></button>
+                      <button onClick={() => setActionModal({ type: "verify", user })} className={`p-2 rounded-xl transition ${user.is_verified ? "bg-blue-500/20 text-blue-500" : "bg-secondary text-muted-foreground"} hover:bg-blue-500/25`} title="ভেরিফাই"><BadgeCheck size={14} /></button>
+                      <button onClick={() => setActionModal({ type: "notify", user })} className="p-2 rounded-xl bg-secondary text-muted-foreground hover:bg-secondary/80 transition" title="নোটিফিকেশন"><Bell size={14} /></button>
+                      <button onClick={() => handleLoginAsUser(user)} className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 hover:bg-cyan-500/20 transition" title="ঢুকুন"><LogIn size={14} /></button>
+                      <button onClick={() => setActionModal({ type: "delete", user })} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition" title="ডিলেট"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 </div>
@@ -378,6 +364,37 @@ const AdminPage = () => {
                 <div className="text-center py-10 text-muted-foreground font-bold">কোনো ইউজার পাওয়া যায়নি</div>
               )}
             </div>
+
+            {/* Pagination */}
+            {filteredUsers.length > USERS_PER_PAGE && (
+              <div className="flex items-center justify-center gap-3 pt-4">
+                <button
+                  onClick={() => { setUserPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  disabled={userPage <= 1}
+                  className="px-4 py-2 rounded-xl bg-card border border-border font-bold text-sm text-foreground hover:bg-secondary transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ← আগের
+                </button>
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.ceil(filteredUsers.length / USERS_PER_PAGE) }, (_, i) => i + 1).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => { setUserPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className={`w-9 h-9 rounded-xl font-bold text-sm transition ${p === userPage ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => { setUserPage(p => Math.min(Math.ceil(filteredUsers.length / USERS_PER_PAGE), p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  disabled={userPage >= Math.ceil(filteredUsers.length / USERS_PER_PAGE)}
+                  className="px-4 py-2 rounded-xl bg-card border border-border font-bold text-sm text-foreground hover:bg-secondary transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  পরের →
+                </button>
+              </div>
+            )}
           </div>
         )}
 
