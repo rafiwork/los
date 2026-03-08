@@ -354,13 +354,6 @@ const ChatPage = () => {
                   >
                     📹
                   </button>
-                  <button
-                    onClick={() => setShowInsightPanel(prev => !prev)}
-                    className={`w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary transition-colors text-sm ml-1 ${showInsightPanel ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`}
-                    title="প্রোফাইল দেখুন"
-                  >
-                    ℹ️
-                  </button>
                 </div>
               </div>
 
