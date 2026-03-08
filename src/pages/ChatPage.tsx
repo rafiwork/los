@@ -32,22 +32,7 @@ interface ConversationItem {
   isMine: boolean;
 }
 
-const AVATAR_COLORS = [
-  "from-blue-500 to-cyan-400",
-  "from-violet-500 to-purple-400",
-  "from-rose-500 to-pink-400",
-  "from-amber-500 to-orange-400",
-  "from-emerald-500 to-teal-400",
-  "from-indigo-500 to-blue-400",
-  "from-fuchsia-500 to-pink-400",
-  "from-sky-500 to-cyan-400",
-];
-
-const getAvatarColor = (name: string) => {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-};
+// Avatar colors handled by UserAvatar component
 
 const ChatPage = () => {
   const navigate = useNavigate();
