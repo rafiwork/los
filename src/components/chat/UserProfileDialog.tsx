@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { BadgeCheck } from "lucide-react";
 
 interface Profile {
   user_id: string;
@@ -24,6 +25,7 @@ interface Profile {
   hide_email?: boolean;
   hide_mobile?: boolean;
   is_online?: boolean;
+  is_verified?: boolean;
   last_seen?: string | null;
   avatar_url?: string | null;
 }
@@ -135,9 +137,10 @@ const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
               <DialogHeader>
                 <DialogTitle className="text-xl font-black text-foreground flex items-center justify-center gap-2">
                   {profile.name}
+                  {profile.is_verified && <BadgeCheck size={20} className="text-blue-500 shrink-0" />}
                   {profile.is_online && (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-green-500">
-                      <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-500">
+                      <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
                       অনলাইন
                     </span>
                   )}

@@ -7,11 +7,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { bn } from "date-fns/locale";
 import { getMyStatus } from "@/lib/adminStore";
+import { BadgeCheck } from "lucide-react";
+import UserProfileDialog from "@/components/chat/UserProfileDialog";
 
 interface PostProfile {
   name: string;
   user_id: string;
   is_online?: boolean;
+  is_verified?: boolean;
+  avatar_url?: string | null;
 }
 
 interface Comment {
@@ -108,6 +112,8 @@ const FeedPage = () => {
   const [userStatus, setUserStatus] = useState<{ status: string; suspend_reason: string | null }>({ status: "active", suspend_reason: null });
   const [appealMessage, setAppealMessage] = useState("");
   const [appealSent, setAppealSent] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Init
   useEffect(() => {
@@ -120,7 +126,7 @@ const FeedPage = () => {
   // Load profiles
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("profiles").select("user_id, name, is_online");
+      const { data } = await supabase.from("profiles").select("user_id, name, is_online, is_verified, avatar_url");
       if (data) {
         const map: Record<string, PostProfile> = {};
         data.forEach(p => { map[p.user_id] = p as PostProfile; });
@@ -536,15 +542,16 @@ const FeedPage = () => {
               <div key={post.id} data-post-id={post.id} className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden max-w-full">
                 {/* Post Header */}
                 <div className="flex items-center gap-3 p-4 pb-2">
-                  <Avatar className="w-10 h-10 shrink-0">
+                  <Avatar className="w-10 h-10 shrink-0 cursor-pointer" onClick={() => { setProfileUserId(post.user_id); setProfileOpen(true); }}>
                     <AvatarFallback className="bg-primary/10 text-primary font-black text-sm">
                       {profile?.name?.charAt(0) || "?"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-sm text-foreground truncate">{profile?.name || "অজানা"}</p>
-                      {profile?.is_online && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0" />}
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-bold text-sm text-foreground truncate cursor-pointer hover:underline" onClick={() => { setProfileUserId(post.user_id); setProfileOpen(true); }}>{profile?.name || "অজানা"}</p>
+                      {profile?.is_verified && <BadgeCheck size={16} className="text-blue-500 shrink-0" />}
+                      {profile?.is_online && <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0" />}
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-[11px] text-muted-foreground">{timeAgo(post.created_at)}</p>
@@ -788,6 +795,7 @@ const FeedPage = () => {
         title="পোস্ট ডিলেট করবেন?"
         description="এই পোস্টটি স্থায়ীভাবে মুছে ফেলা হবে।"
       />
+      <UserProfileDialog userId={profileUserId} open={profileOpen} onOpenChange={setProfileOpen} />
     </div>
   );
 };
