@@ -20,6 +20,7 @@ export interface UserProfile {
   social_link?: string;
   hide_email?: boolean;
   hide_mobile?: boolean;
+  avatar_url?: string;
 }
 
 export async function signUp(email: string, password: string, name: string) {
