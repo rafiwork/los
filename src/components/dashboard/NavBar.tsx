@@ -98,9 +98,14 @@ const NavBar = ({ userName, selectedDate, onDateChange, onLogout, onSettings, on
           {/* Chat button */}
           <button
             onClick={() => navigate('/chat')}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm"
+            className="relative w-9 h-9 flex items-center justify-center rounded-full bg-secondary border border-border hover:border-primary transition text-sm"
           >
             💬
+            {unreadChat > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                {unreadChat > 99 ? '99+' : unreadChat}
+              </span>
+            )}
           </button>
 
           {/* Profile */}
