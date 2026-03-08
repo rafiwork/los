@@ -29,7 +29,7 @@ const defaultDayData: DayData = {
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const todayStr = getTodayStr();
+  const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [data, setData] = useState<DayData>(defaultDayData);
   const [goals, setGoalsState] = useState<Goal[]>([]);
@@ -38,30 +38,28 @@ const DashboardPage = () => {
   const [showProfile, setShowProfile] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const isToday = selectedDate === getTodayStr();
+
   useEffect(() => {
     const load = async () => {
       const p = await getProfile();
       setProfile(p);
-      const saved = await loadDayData(todayStr);
-      if (saved) setData(saved);
+      const saved = await loadDayData(selectedDate);
+      setData(saved || defaultDayData);
       setGoalsState(await getGoals());
       setPermNotesState(await getPermNotes());
       setLoading(false);
     };
     load();
-  }, [todayStr]);
-
-  const saveRef = useCallback(async (newData: DayData) => {
-    await saveDayData(todayStr, newData);
-  }, [todayStr]);
+  }, [selectedDate]);
 
   const updateData = useCallback((partial: Partial<DayData>) => {
     setData(prev => {
       const next = { ...prev, ...partial };
-      saveDayData(todayStr, next);
+      saveDayData(selectedDate, next);
       return next;
     });
-  }, [todayStr]);
+  }, [selectedDate]);
 
   const updateGoals = useCallback(async (newGoals: Goal[]) => {
     setGoalsState(newGoals);
@@ -91,7 +89,7 @@ const DashboardPage = () => {
 
   return (
     <div className="bg-background min-h-screen pb-10">
-      <NavBar userName={profile?.name || 'User'} onLogout={handleLogout} onSettings={() => setShowSettings(true)} onProfile={() => setShowProfile(true)} />
+      <NavBar userName={profile?.name || 'User'} selectedDate={selectedDate} onDateChange={setSelectedDate} onLogout={handleLogout} onSettings={() => setShowSettings(true)} onProfile={() => setShowProfile(true)} />
       <main className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
         <AIAssistant data={data} goals={goals} />
         <SummaryCards data={data} />
