@@ -703,11 +703,11 @@ const ChatPage = () => {
                 />
               </div>
               {newMessage.trim() ? (
-                <button onClick={sendMessage} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground transition active:scale-90 shrink-0 shadow-sm">
+                <button onClick={() => sendMessage()} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground transition active:scale-90 shrink-0 shadow-sm">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
                 </button>
               ) : (
-                <button onClick={() => { setNewMessage("👍"); setTimeout(() => sendMessage(), 50); }} className="w-10 h-10 flex items-center justify-center rounded-full text-primary hover:bg-primary/10 transition active:scale-90 text-xl shrink-0">👍</button>
+                <button onClick={() => sendMessage("👍")} className="w-10 h-10 flex items-center justify-center rounded-full text-primary hover:bg-primary/10 transition active:scale-90 text-xl shrink-0">👍</button>
               )}
             </div>
           </div>
