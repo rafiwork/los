@@ -10,7 +10,7 @@ interface Props {
   onProfile: () => void;
 }
 
-const NavBar = ({ userName, onLogout, onSettings, onProfile }: Props) => {
+const NavBar = ({ userName, selectedDate, onDateChange, onLogout, onSettings, onProfile }: Props) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
