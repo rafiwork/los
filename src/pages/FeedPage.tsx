@@ -378,70 +378,41 @@ const FeedPage = () => {
 
       <div className="max-w-2xl mx-auto w-full flex-1 pb-6 px-3 overflow-x-hidden">
         {/* Create Post */}
-        <div className="bg-card border border-border rounded-2xl mt-3 mb-3 p-3 sm:p-4 shadow-sm overflow-hidden">
-          <div className="flex gap-3">
-            <Avatar className="w-10 h-10 shrink-0">
+        <div className="bg-card border border-border rounded-2xl mt-3 mb-3 shadow-sm overflow-hidden">
+          <div className="flex items-start gap-3 p-3 sm:p-4">
+            <Avatar className="w-9 h-9 shrink-0 mt-0.5">
               <AvatarFallback className="bg-primary/10 text-primary font-black text-sm">
                 {profiles[currentUserId]?.name?.charAt(0) || "?"}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1">
-              <textarea
-                value={newPostContent}
-                onChange={e => setNewPostContent(e.target.value)}
-                placeholder="আপনার মনে কী আছে...?"
-                className="w-full bg-secondary/50 border border-border rounded-xl p-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 resize-none transition"
-                rows={3}
-              />
-              <div className="flex items-center justify-between mt-2 gap-2 flex-wrap sm:flex-nowrap">
-                <div className="flex gap-1.5 overflow-x-auto no-scrollbar max-w-full pb-1">
-                  {CATEGORIES.map(c => (
-                    <button
-                      key={c.value}
-                      onClick={() => setNewPostCategory(c.value)}
-                      className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
-                        newPostCategory === c.value
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-border hover:border-primary"
-                      }`}
-                    >
-                      {c.emoji} {c.label}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={createPost}
-                  disabled={!newPostContent.trim() || posting}
-                  className="shrink-0 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-xs font-black hover:opacity-90 transition active:scale-95 disabled:opacity-50"
-                >
-                  {posting ? "..." : "পোস্ট"}
-                </button>
-              </div>
-            </div>
+            <textarea
+              value={newPostContent}
+              onChange={e => setNewPostContent(e.target.value)}
+              placeholder="আপনার মনে কী আছে...?"
+              className="flex-1 bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60px] pt-1.5"
+              rows={2}
+            />
           </div>
-        </div>
-
-        {/* Category Filter */}
-        <div className="mb-2 flex gap-1.5 overflow-x-auto no-scrollbar max-w-full">
-          <button
-            onClick={() => setFilterCategory(null)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
-              !filterCategory ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary"
-            }`}
-          >
-            🔥 সব
-          </button>
-          {CATEGORIES.map(c => (
+          {newPostContent.trim() && (
+            <div className="px-3 pb-1">
+              <span className="text-[10px] text-muted-foreground bg-secondary/60 rounded-full px-2 py-0.5 font-bold">
+                {(() => {
+                  const cat = detectCategory(newPostContent);
+                  const info = CATEGORIES.find(c => c.value === cat);
+                  return info ? `${info.emoji} ${info.label}` : "📝 সাধারণ";
+                })()}
+              </span>
+            </div>
+          )}
+          <div className="border-t border-border px-3 py-2 flex justify-end">
             <button
-              key={c.value}
-              onClick={() => setFilterCategory(filterCategory === c.value ? null : c.value)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
-                filterCategory === c.value ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary"
-              }`}
+              onClick={createPost}
+              disabled={!newPostContent.trim() || posting}
+              className="bg-primary text-primary-foreground px-5 py-1.5 rounded-full text-xs font-black hover:opacity-90 transition active:scale-95 disabled:opacity-50"
             >
-              {c.emoji} {c.label}
+              {posting ? "..." : "পোস্ট করুন"}
             </button>
-          ))}
+          </div>
         </div>
 
         {/* Posts */}
