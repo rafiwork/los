@@ -122,7 +122,7 @@ const FeedPage = () => {
   // Load profiles
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("profiles").select("user_id, name, is_online");
+      const { data } = await supabase.from("profiles").select("user_id, name, is_online, is_verified, avatar_url");
       if (data) {
         const map: Record<string, PostProfile> = {};
         data.forEach(p => { map[p.user_id] = p as PostProfile; });
