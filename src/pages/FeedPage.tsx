@@ -118,6 +118,8 @@ const FeedPage = () => {
   const [appealSent, setAppealSent] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
   // Init
   useEffect(() => {
