@@ -6,7 +6,10 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, UserPlus, MessageCircle, UserCheck, Clock, UserX } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface Profile {
   user_id: string;
@@ -29,6 +32,8 @@ interface Profile {
   last_seen?: string | null;
   avatar_url?: string | null;
 }
+
+type FriendshipStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted';
 
 interface Props {
   userId: string | null;
@@ -56,7 +61,7 @@ const InfoRow = ({
       <div className="min-w-0">
         <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">{label}</p>
         <p className={`text-sm break-words ${hasValue ? "font-semibold text-foreground" : "font-medium text-muted-foreground"}`}>
-          {hasValue ? value : "তথ্য যোগ করা হয়নি"}
+          {hasValue ? value : "তথ্য যোগ করা হয়নি"}
         </p>
       </div>
     </div>
@@ -64,9 +69,14 @@ const InfoRow = ({
 };
 
 const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>('none');
+  const [friendshipId, setFriendshipId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     if (!userId || !open) return;
@@ -74,6 +84,7 @@ const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
 
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
       setIsOwnProfile(user?.id === userId);
 
       const { data } = await supabase
@@ -82,6 +93,30 @@ const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
         .eq("user_id", userId)
         .single();
       if (data) setProfile(data as unknown as Profile);
+
+      // Check friendship status
+      if (user && user.id !== userId) {
+        const { data: friendships } = await supabase
+          .from("friendships")
+          .select("*")
+          .or(`and(requester_id.eq.${user.id},receiver_id.eq.${userId}),and(requester_id.eq.${userId},receiver_id.eq.${user.id})`);
+
+        if (friendships && friendships.length > 0) {
+          const f = friendships[0];
+          setFriendshipId(f.id);
+          if (f.status === 'accepted') {
+            setFriendshipStatus('accepted');
+          } else if (f.requester_id === user.id) {
+            setFriendshipStatus('pending_sent');
+          } else {
+            setFriendshipStatus('pending_received');
+          }
+        } else {
+          setFriendshipStatus('none');
+          setFriendshipId(null);
+        }
+      }
+
       setLoading(false);
     };
     load();
@@ -107,6 +142,79 @@ const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
     } catch { return null; }
   };
 
+  const sendFriendRequest = async () => {
+    if (!currentUserId || !userId) return;
+    setActionLoading(true);
+    try {
+      const { data, error } = await supabase.from("friendships").insert({
+        requester_id: currentUserId,
+        receiver_id: userId,
+        status: 'pending'
+      }).select().single();
+
+      if (error) throw error;
+
+      // Create notification for receiver
+      await supabase.from("feed_notifications").insert({
+        user_id: userId,
+        actor_id: currentUserId,
+        type: 'friend_request',
+        friendship_id: data.id
+      });
+
+      setFriendshipStatus('pending_sent');
+      setFriendshipId(data.id);
+      toast.success("ফ্রেন্ড রিকোয়েস্ট পাঠানো হয়েছে!");
+    } catch (err) {
+      toast.error("কিছু সমস্যা হয়েছে!");
+    }
+    setActionLoading(false);
+  };
+
+  const acceptFriendRequest = async () => {
+    if (!friendshipId || !currentUserId || !userId) return;
+    setActionLoading(true);
+    try {
+      await supabase.from("friendships").update({ status: 'accepted' }).eq("id", friendshipId);
+
+      // Notify the requester
+      const { data: friendship } = await supabase.from("friendships").select("*").eq("id", friendshipId).single();
+      if (friendship) {
+        await supabase.from("feed_notifications").insert({
+          user_id: friendship.requester_id,
+          actor_id: currentUserId,
+          type: 'friend_accepted',
+          friendship_id: friendshipId
+        });
+      }
+
+      setFriendshipStatus('accepted');
+      toast.success("ফ্রেন্ড রিকোয়েস্ট গ্রহণ করা হয়েছে!");
+    } catch (err) {
+      toast.error("কিছু সমস্যা হয়েছে!");
+    }
+    setActionLoading(false);
+  };
+
+  const cancelOrUnfriend = async () => {
+    if (!friendshipId) return;
+    setActionLoading(true);
+    try {
+      await supabase.from("friendships").delete().eq("id", friendshipId);
+      setFriendshipStatus('none');
+      setFriendshipId(null);
+      toast.success(friendshipStatus === 'accepted' ? "আনফ্রেন্ড করা হয়েছে" : "রিকোয়েস্ট বাতিল করা হয়েছে");
+    } catch (err) {
+      toast.error("কিছু সমস্যা হয়েছে!");
+    }
+    setActionLoading(false);
+  };
+
+  const goToChat = () => {
+    onOpenChange(false);
+    navigate(`/chat?user=${userId}`);
+  };
+
   const showEmail = isOwnProfile || !profile?.hide_email;
   const showMobile = isOwnProfile || !profile?.hide_mobile;
 
@@ -121,7 +229,7 @@ const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
         ) : (
           <>
             {/* Header */}
-            <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-transparent pt-8 pb-6 px-6 text-center relative">
+            <div className="bg-gradient-to-br from-primary/20 via-primary/10 to-transparent pt-8 pb-4 px-6 text-center relative">
               <div className="w-20 h-20 mx-auto mb-3 rounded-full border-4 border-background shadow-lg overflow-hidden relative">
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
@@ -153,6 +261,67 @@ const UserProfileDialog = ({ userId, open, onOpenChange }: Props) => {
               )}
               {profile.intro && (
                 <p className="text-xs text-muted-foreground font-semibold mt-2 italic">"{profile.intro}"</p>
+              )}
+
+              {/* Action buttons */}
+              {!isOwnProfile && (
+                <div className="flex items-center justify-center gap-3 mt-4">
+                  {friendshipStatus === 'none' && (
+                    <Button
+                      size="sm"
+                      onClick={sendFriendRequest}
+                      disabled={actionLoading}
+                      className="gap-2 rounded-xl font-bold"
+                    >
+                      <UserPlus size={16} />
+                      Add Friend
+                    </Button>
+                  )}
+                  {friendshipStatus === 'pending_sent' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={cancelOrUnfriend}
+                      disabled={actionLoading}
+                      className="gap-2 rounded-xl font-bold"
+                    >
+                      <Clock size={16} />
+                      রিকোয়েস্ট পাঠানো হয়েছে
+                    </Button>
+                  )}
+                  {friendshipStatus === 'pending_received' && (
+                    <Button
+                      size="sm"
+                      onClick={acceptFriendRequest}
+                      disabled={actionLoading}
+                      className="gap-2 rounded-xl font-bold bg-emerald-500 hover:bg-emerald-600"
+                    >
+                      <UserCheck size={16} />
+                      গ্রহণ করুন
+                    </Button>
+                  )}
+                  {friendshipStatus === 'accepted' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={cancelOrUnfriend}
+                      disabled={actionLoading}
+                      className="gap-2 rounded-xl font-bold"
+                    >
+                      <UserX size={16} />
+                      আনফ্রেন্ড
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={goToChat}
+                    className="gap-2 rounded-xl font-bold"
+                  >
+                    <MessageCircle size={16} />
+                    Message
+                  </Button>
+                </div>
               )}
             </div>
 
