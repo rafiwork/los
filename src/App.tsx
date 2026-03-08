@@ -11,6 +11,7 @@ import DashboardPage from "./pages/DashboardPage";
 import NotFound from "./pages/NotFound";
 import ChatPage from "./pages/ChatPage";
 import FeedPage from "./pages/FeedPage";
+import { CallProvider } from "./components/call/CallProvider";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <CallProvider>
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
@@ -66,6 +68,7 @@ const App = () => (
           <Route path="/feed" element={<ProtectedRoute><FeedPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </CallProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

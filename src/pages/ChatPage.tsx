@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import UserProfileDialog from "@/components/chat/UserProfileDialog";
+import { useCall } from "@/components/call/CallProvider";
 
 interface Profile {
   user_id: string;
@@ -33,6 +34,7 @@ const ChatPage = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const { startCall } = useCall();
 
   // Get current user & set online
   const currentUserIdRef = useRef("");
@@ -183,6 +185,25 @@ const ChatPage = () => {
               </span>
             ) : "চ্যাট"}
           </h1>
+          {/* Call buttons */}
+          {selectedUser && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <button
+                onClick={() => startCall(selectedUser.user_id, selectedUser.name, "audio")}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-green-500/10 hover:bg-green-500/20 text-green-500 transition active:scale-95 text-lg"
+                title="অডিও কল"
+              >
+                📞
+              </button>
+              <button
+                onClick={() => startCall(selectedUser.user_id, selectedUser.name, "video")}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition active:scale-95 text-lg"
+                title="ভিডিও কল"
+              >
+                📹
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
