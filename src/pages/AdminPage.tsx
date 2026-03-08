@@ -289,6 +289,7 @@ const AdminPage = () => {
             { key: "spam", icon: AlertTriangle, label: `স্প্যাম${spamBans.filter(b => b.violation_count > 0).length ? ` (${spamBans.filter(b => b.violation_count > 0).length})` : ""}` },
             { key: "appeals", icon: FileText, label: `আবেদন${pendingAppeals.length ? ` (${pendingAppeals.length})` : ""}` },
             { key: "logs", icon: Clock, label: "লগ" },
+            { key: "settings", icon: Settings, label: "সেটিংস" },
           ].map(t => (
             <button
               key={t.key}
