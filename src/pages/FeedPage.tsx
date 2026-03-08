@@ -435,6 +435,22 @@ const FeedPage = () => {
   const addComment = async (postId: string) => {
     const text = commentInputs[postId]?.trim();
     if (!text || !currentUserId) return;
+    // Spam ban check
+    if (spamBanStatus.banned) {
+      toast.error(spamBanStatus.permanent ? "আপনার কমেন্ট করার অধিকার স্থায়ীভাবে বন্ধ।" : "আপনি এখন কমেন্ট করতে পারবেন না।");
+      return;
+    }
+    const matched = checkSpam(text, spamWords);
+    if (matched) {
+      const result = await recordViolation(currentUserId, matched, "comment", postId);
+      if (result.banned) {
+        setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
+        toast.error(result.permanent ? "স্প্যামের কারণে স্থায়ী ব্যান!" : `${result.banDays} দিনের ব্যান!`);
+      } else {
+        toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড!`);
+      }
+      return;
+    }
     await supabase.from("post_comments").insert({
       post_id: postId,
       user_id: currentUserId,
