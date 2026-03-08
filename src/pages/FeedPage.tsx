@@ -325,6 +325,15 @@ const FeedPage = () => {
       // New reaction
       await supabase.from("post_likes").insert({ post_id: post.id, user_id: currentUserId, reaction_type: reactionType } as any);
       trackInterest(post.category);
+      // Send notification to post owner
+      if (post.user_id !== currentUserId) {
+        await supabase.from("feed_notifications").insert({
+          user_id: post.user_id,
+          actor_id: currentUserId,
+          type: 'like',
+          post_id: post.id
+        });
+      }
     }
   };
 
