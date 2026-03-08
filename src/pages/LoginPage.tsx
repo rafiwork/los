@@ -37,7 +37,10 @@ const LoginPage = () => {
             {loading ? "লোড হচ্ছে..." : "লগইন করুন"}
           </button>
         </form>
-        <div className="mt-6 text-center">
+        <div className="mt-4 text-center">
+          <Link to="/forgot-password" className="text-sm font-bold text-primary hover:underline transition">পাসওয়ার্ড ভুলে গেছেন?</Link>
+        </div>
+        <div className="mt-3 text-center">
           <Link to="/register" className="text-sm font-bold text-muted-foreground hover:text-primary transition">নতুন অ্যাকাউন্ট তৈরি করুন</Link>
         </div>
       </div>
