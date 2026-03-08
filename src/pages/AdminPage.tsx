@@ -80,6 +80,20 @@ const AdminPage = () => {
     setSpamViolations((sv as any[]) || []);
     const { data: sb } = await supabase.from("spam_bans" as any).select("*").order("violation_count", { ascending: false });
     setSpamBans((sb as any[]) || []);
+    // Load reports
+    const { data: reps } = await supabase.from("reports").select("*").order("created_at", { ascending: false });
+    setReports((reps as any[]) || []);
+    // Load all report replies
+    if (reps && reps.length > 0) {
+      const repIds = reps.map(r => r.id);
+      const { data: repReplies } = await supabase.from("report_replies" as any).select("*").in("report_id", repIds).order("created_at", { ascending: true });
+      const grouped: Record<string, any[]> = {};
+      (repReplies as any[] || []).forEach((r: any) => {
+        if (!grouped[r.report_id]) grouped[r.report_id] = [];
+        grouped[r.report_id].push(r);
+      });
+      setReportReplies(grouped);
+    }
   }, []);
 
   const filteredUsers = users.filter(u =>
