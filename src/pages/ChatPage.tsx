@@ -415,6 +415,7 @@ const ChatPage = () => {
                           <div className="w-8 mr-2 shrink-0 self-end">
                             {isLast && (
                               <UserAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar_url} size={28} />
+                            )}
                           </div>
                         )}
                         <div className="max-w-[55%] group relative">
