@@ -47,6 +47,7 @@ interface Message {
   sender_id: string;
   receiver_id: string;
   content: string;
+  image_url?: string | null;
   read: boolean;
   created_at: string;
 }
