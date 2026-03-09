@@ -808,6 +808,41 @@ const AdminPage = () => {
         {tab === "settings" && (
           <div className="space-y-6">
             <h3 className="text-lg font-black text-foreground flex items-center gap-2"><Settings size={20} /> সাইট সেটিংস</h3>
+
+            {/* Feature Controls */}
+            <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+              <h4 className="font-bold text-foreground mb-4 flex items-center gap-2">⚙️ ফিচার কন্ট্রোল</h4>
+              <p className="text-xs text-muted-foreground mb-4">এখান থেকে সাইটের বিভিন্ন ফিচার অন/অফ করতে পারবেন।</p>
+              <div className="space-y-3">
+                {[
+                  { key: "feature_post_images", label: "📸 পোস্টে ছবি আপলোড", desc: "ইউজাররা পোস্টে ছবি যোগ করতে পারবে" },
+                  { key: "feature_chat_images", label: "💬 চ্যাটে ছবি পাঠানো", desc: "ইউজাররা চ্যাটে ছবি পাঠাতে পারবে" },
+                  { key: "feature_comment_images", label: "💭 কমেন্টে ছবি", desc: "ইউজাররা কমেন্টে ছবি যোগ করতে পারবে" },
+                  { key: "feature_stories", label: "📱 স্টোরি", desc: "ইউজাররা ২৪ ঘণ্টার স্টোরি পোস্ট করতে পারবে" },
+                ].map(item => {
+                  const isOn = featureToggles[item.key] ?? true;
+                  return (
+                    <div key={item.key} className="flex items-center justify-between p-3 rounded-xl bg-secondary/50 border border-border">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{item.label}</p>
+                        <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newVal = !isOn;
+                          setFeatureToggles(prev => ({ ...prev, [item.key]: newVal }));
+                          await supabase.from("site_settings" as any).update({ value: newVal ? "true" : "false", updated_at: new Date().toISOString() }).eq("key", item.key);
+                          toast.success(`${item.label} ${newVal ? "চালু" : "বন্ধ"} করা হয়েছে`);
+                        }}
+                        className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${isOn ? "bg-primary" : "bg-muted"}`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-background shadow transition-transform ${isOn ? "translate-x-5" : "translate-x-0"}`} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             
             {/* Site Logo */}
             <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
