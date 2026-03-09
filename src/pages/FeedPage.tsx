@@ -7,14 +7,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { bn } from "date-fns/locale";
 import { getMyStatus } from "@/lib/adminStore";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, Settings, ImagePlus, X, Loader2 } from "lucide-react";
 import UserProfileDialog from "@/components/chat/UserProfileDialog";
 import FeedNotifications from "@/components/feed/FeedNotifications";
 import FriendList from "@/components/feed/FriendList";
 import FeedSettingsModal from "@/components/feed/FeedSettingsModal";
 import LinkPreview from "@/components/feed/LinkPreview";
-import { Settings } from "lucide-react";
+import StoriesBar from "@/components/feed/StoriesBar";
 import { loadSpamWords, checkSpam, recordViolation, isSpamBanned } from "@/lib/spamChecker";
+import { compressImage } from "@/lib/imageCompress";
+import { useFeatureSettings } from "@/hooks/useFeatureSettings";
 import { toast } from "sonner";
 
 interface PostProfile {
@@ -32,6 +34,7 @@ interface Comment {
   content: string;
   parent_id: string | null;
   created_at: string;
+  image_url?: string | null;
   profile?: PostProfile;
   likes_count: number;
   liked_by_me: boolean;
@@ -57,6 +60,7 @@ interface Post {
   user_id: string;
   content: string;
   category: string;
+  image_url?: string | null;
   created_at: string;
   profile?: PostProfile;
   likes_count: number;
@@ -101,6 +105,7 @@ const detectCategory = (content: string): string => {
 
 const FeedPage = () => {
   const navigate = useNavigate();
+  const { settings: featureSettings } = useFeatureSettings();
   const [currentUserId, setCurrentUserId] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostContent, setNewPostContent] = useState("");
@@ -125,6 +130,13 @@ const FeedPage = () => {
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
   const [spamWords, setSpamWords] = useState<string[]>([]);
   const [spamBanStatus, setSpamBanStatus] = useState<{ banned: boolean; permanent: boolean; banUntil: string | null }>({ banned: false, permanent: false, banUntil: null });
+  
+  // Image upload states
+  const [postImage, setPostImage] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
+  const [commentImages, setCommentImages] = useState<Record<string, File | null>>({});
+  const [commentImagePreviews, setCommentImagePreviews] = useState<Record<string, string | null>>({});
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Init
   useEffect(() => {
@@ -328,35 +340,59 @@ const FeedPage = () => {
     }
   };
 
+  // Upload image helper
+  const uploadImage = async (file: File, folder: string): Promise<string | null> => {
+    try {
+      const compressed = await compressImage(file);
+      const path = `${folder}/${currentUserId}/${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from("media").upload(path, compressed, { contentType: "image/jpeg" });
+      if (error) throw error;
+      const { data } = supabase.storage.from("media").getPublicUrl(path);
+      return data.publicUrl;
+    } catch {
+      toast.error("ছবি আপলোড ব্যর্থ!");
+      return null;
+    }
+  };
+
   // Create post
   const createPost = async () => {
-    if (!newPostContent.trim() || !currentUserId) return;
+    if ((!newPostContent.trim() && !postImage) || !currentUserId) return;
     // Check spam ban
     if (spamBanStatus.banned) {
       toast.error(spamBanStatus.permanent ? "আপনার পোস্ট করার অধিকার স্থায়ীভাবে বন্ধ।" : `আপনি ${new Date(spamBanStatus.banUntil!).toLocaleDateString('bn-BD')} পর্যন্ত পোস্ট করতে পারবেন না।`);
       return;
     }
     // Check spam words
-    const matched = checkSpam(newPostContent, spamWords);
-    if (matched) {
-      const result = await recordViolation(currentUserId, matched, "post");
-      if (result.banned) {
-        setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
-        toast.error(result.permanent ? "স্প্যামের কারণে আপনার পোস্ট করা স্থায়ীভাবে বন্ধ হয়েছে!" : `স্প্যামের কারণে ${result.banDays} দিনের জন্য পোস্ট/কমেন্ট বন্ধ!`);
-      } else {
-        toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড! সতর্ক থাকুন।`);
+    if (newPostContent.trim()) {
+      const matched = checkSpam(newPostContent, spamWords);
+      if (matched) {
+        const result = await recordViolation(currentUserId, matched, "post");
+        if (result.banned) {
+          setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
+          toast.error(result.permanent ? "স্প্যামের কারণে আপনার পোস্ট করা স্থায়ীভাবে বন্ধ হয়েছে!" : `স্প্যামের কারণে ${result.banDays} দিনের জন্য পোস্ট/কমেন্ট বন্ধ!`);
+        } else {
+          toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড! সতর্ক থাকুন।`);
+        }
+        return;
       }
-      return;
     }
     setPosting(true);
+    let imageUrl: string | null = null;
+    if (postImage) {
+      imageUrl = await uploadImage(postImage, "posts");
+    }
     const autoCategory = detectCategory(newPostContent);
     await supabase.from("posts").insert({
       user_id: currentUserId,
-      content: newPostContent.trim(),
+      content: newPostContent.trim() || "📷",
       category: autoCategory,
+      image_url: imageUrl,
     });
     trackInterest(autoCategory);
     setNewPostContent("");
+    setPostImage(null);
+    setPostImagePreview(null);
     setPosting(false);
   };
 
@@ -434,27 +470,35 @@ const FeedPage = () => {
   // Add comment
   const addComment = async (postId: string) => {
     const text = commentInputs[postId]?.trim();
-    if (!text || !currentUserId) return;
+    const imgFile = commentImages[postId];
+    if ((!text && !imgFile) || !currentUserId) return;
     // Spam ban check
     if (spamBanStatus.banned) {
       toast.error(spamBanStatus.permanent ? "আপনার কমেন্ট করার অধিকার স্থায়ীভাবে বন্ধ।" : "আপনি এখন কমেন্ট করতে পারবেন না।");
       return;
     }
-    const matched = checkSpam(text, spamWords);
-    if (matched) {
-      const result = await recordViolation(currentUserId, matched, "comment", postId);
-      if (result.banned) {
-        setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
-        toast.error(result.permanent ? "স্প্যামের কারণে স্থায়ী ব্যান!" : `${result.banDays} দিনের ব্যান!`);
-      } else {
-        toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড!`);
+    if (text) {
+      const matched = checkSpam(text, spamWords);
+      if (matched) {
+        const result = await recordViolation(currentUserId, matched, "comment", postId);
+        if (result.banned) {
+          setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
+          toast.error(result.permanent ? "স্প্যামের কারণে স্থায়ী ব্যান!" : `${result.banDays} দিনের ব্যান!`);
+        } else {
+          toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড!`);
+        }
+        return;
       }
-      return;
+    }
+    let imageUrl: string | null = null;
+    if (imgFile) {
+      imageUrl = await uploadImage(imgFile, "comments");
     }
     await supabase.from("post_comments").insert({
       post_id: postId,
       user_id: currentUserId,
-      content: text,
+      content: text || "📷",
+      image_url: imageUrl,
     });
     // Send notification to post owner
     const post = posts.find(p => p.id === postId);
@@ -467,6 +511,8 @@ const FeedPage = () => {
       });
     }
     setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+    setCommentImages(prev => ({ ...prev, [postId]: null }));
+    setCommentImagePreviews(prev => ({ ...prev, [postId]: null }));
     trackInterest(posts.find(p => p.id === postId)?.category || "general");
   };
 
@@ -609,6 +655,10 @@ const FeedPage = () => {
       </nav>
 
       <div className="max-w-2xl mx-auto w-full flex-1 pb-6 px-3 overflow-x-hidden">
+        {/* Stories */}
+        {featureSettings.feature_stories && userStatus.status !== "blocked" && (
+          <StoriesBar currentUserId={currentUserId} profiles={profiles} />
+        )}
         {/* Blocked user screen */}
         {userStatus.status === "blocked" ? (
           <div className="flex flex-col items-center justify-center py-20">
@@ -671,6 +721,18 @@ const FeedPage = () => {
               rows={2}
             />
           </div>
+          {/* Post Image Preview */}
+          {postImagePreview && (
+            <div className="px-3 pb-2 relative">
+              <img src={postImagePreview} alt="প্রিভিউ" className="w-full max-h-60 object-cover rounded-xl border border-border" />
+              <button
+                onClick={() => { setPostImage(null); setPostImagePreview(null); }}
+                className="absolute top-2 right-5 w-7 h-7 rounded-full bg-foreground/60 text-background flex items-center justify-center hover:bg-foreground/80 transition"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
           {newPostContent.trim() && (
             <div className="px-3 pb-1">
               <span className="text-[10px] text-muted-foreground bg-secondary/60 rounded-full px-2 py-0.5 font-bold">
@@ -682,13 +744,28 @@ const FeedPage = () => {
               </span>
             </div>
           )}
-          <div className="border-t border-border px-3 py-2 flex justify-end">
+          <div className="border-t border-border px-3 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {featureSettings.feature_post_images && (
+                <label className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary cursor-pointer transition text-primary">
+                  <ImagePlus size={18} />
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 10 * 1024 * 1024) { toast.error("ছবি 10MB এর বেশি!"); return; }
+                    setPostImage(file);
+                    setPostImagePreview(URL.createObjectURL(file));
+                  }} />
+                </label>
+              )}
+            </div>
             <button
               onClick={createPost}
-              disabled={!newPostContent.trim() || posting}
-              className="bg-primary text-primary-foreground px-5 py-1.5 rounded-full text-xs font-black hover:opacity-90 transition active:scale-95 disabled:opacity-50"
+              disabled={(!newPostContent.trim() && !postImage) || posting}
+              className="bg-primary text-primary-foreground px-5 py-1.5 rounded-full text-xs font-black hover:opacity-90 transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
             >
-              {posting ? "..." : "পোস্ট করুন"}
+              {posting ? <Loader2 size={14} className="animate-spin" /> : null}
+              {posting ? "পোস্ট হচ্ছে..." : "পোস্ট করুন"}
             </button>
           </div>
         </div>
@@ -761,9 +838,16 @@ const FeedPage = () => {
 
                 {/* Post Content */}
                 <div className="px-3 sm:px-4 pb-3">
-                  <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed overflow-hidden">{post.content}</p>
+                  <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed overflow-hidden">{post.content !== "📷" ? post.content : ""}</p>
                   <LinkPreview content={post.content} />
                 </div>
+
+                {/* Post Image */}
+                {post.image_url && (
+                  <div className="px-0">
+                    <img src={post.image_url} alt="পোস্ট ছবি" className="w-full max-h-[500px] object-cover" loading="lazy" />
+                  </div>
+                )}
 
                 {/* Reaction Stats */}
                 {(post.likes_count > 0 || post.comments_count > 0) && (
@@ -891,7 +975,8 @@ const FeedPage = () => {
                             <div className="flex-1 min-w-0">
                               <div className="bg-card border border-border rounded-xl px-3 py-2">
                                 <p className="text-[11px] font-black text-foreground">{profiles[comment.user_id]?.name || "অজানা"}</p>
-                                <p className="text-xs text-foreground font-semibold mt-0.5 break-words">{comment.content}</p>
+                                {comment.content !== "📷" && <p className="text-xs text-foreground font-semibold mt-0.5 break-words">{comment.content}</p>}
+                                {comment.image_url && <img src={comment.image_url} alt="" className="mt-1.5 rounded-lg max-h-40 object-cover" loading="lazy" />}
                               </div>
                               <div className="flex items-center gap-3 mt-1 px-1">
                                 <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
@@ -925,7 +1010,8 @@ const FeedPage = () => {
                                       <div className="flex-1 min-w-0">
                                         <div className="bg-card border border-border rounded-lg px-2.5 py-1.5">
                                           <p className="text-[10px] font-black text-foreground">{profiles[reply.user_id]?.name || "অজানা"}</p>
-                                          <p className="text-[11px] text-foreground font-semibold break-words">{reply.content}</p>
+                                          {reply.content !== "📷" && <p className="text-[11px] text-foreground font-semibold break-words">{reply.content}</p>}
+                                          {reply.image_url && <img src={reply.image_url} alt="" className="mt-1 rounded-md max-h-28 object-cover" loading="lazy" />}
                                         </div>
                                         <div className="flex items-center gap-3 mt-0.5 px-1">
                                           <span className="text-[9px] text-muted-foreground">{timeAgo(reply.created_at)}</span>
@@ -971,6 +1057,28 @@ const FeedPage = () => {
                         </>
                       ) : (
                         <>
+                          {/* Comment image preview */}
+                          {commentImagePreviews[post.id] && (
+                            <div className="relative w-12 h-12 shrink-0">
+                              <img src={commentImagePreviews[post.id]!} alt="" className="w-12 h-12 rounded-lg object-cover border border-border" />
+                              <button
+                                onClick={() => { setCommentImages(prev => ({ ...prev, [post.id]: null })); setCommentImagePreviews(prev => ({ ...prev, [post.id]: null })); }}
+                                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[8px]"
+                              >✕</button>
+                            </div>
+                          )}
+                          {featureSettings.feature_comment_images && (
+                            <label className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary cursor-pointer transition text-primary shrink-0">
+                              <ImagePlus size={16} />
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                if (file.size > 10 * 1024 * 1024) { toast.error("ছবি 10MB এর বেশি!"); return; }
+                                setCommentImages(prev => ({ ...prev, [post.id]: file }));
+                                setCommentImagePreviews(prev => ({ ...prev, [post.id]: URL.createObjectURL(file) }));
+                              }} />
+                            </label>
+                          )}
                           <input
                             value={commentInputs[post.id] || ""}
                             onChange={e => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
@@ -978,7 +1086,7 @@ const FeedPage = () => {
                             placeholder="মন্তব্য লিখুন..."
                             className="flex-1 px-3 py-2 rounded-xl bg-secondary border border-border text-xs font-bold text-foreground outline-none focus:border-primary transition"
                           />
-                          <button onClick={() => addComment(post.id)} disabled={!commentInputs[post.id]?.trim()} className="bg-primary text-primary-foreground px-3 py-2 rounded-xl text-xs font-bold hover:opacity-90 disabled:opacity-50 transition">→</button>
+                          <button onClick={() => addComment(post.id)} disabled={!commentInputs[post.id]?.trim() && !commentImages[post.id]} className="bg-primary text-primary-foreground px-3 py-2 rounded-xl text-xs font-bold hover:opacity-90 disabled:opacity-50 transition">→</button>
                         </>
                       )}
                     </div>

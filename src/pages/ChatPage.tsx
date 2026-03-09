@@ -8,6 +8,9 @@ import UserAvatar, { getAvatarColor } from "@/components/chat/UserAvatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { compressImage } from "@/lib/imageCompress";
+import { useFeatureSettings } from "@/hooks/useFeatureSettings";
+import { ImagePlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface ChatGroup {
@@ -44,6 +47,7 @@ interface Message {
   sender_id: string;
   receiver_id: string;
   content: string;
+  image_url?: string | null;
   read: boolean;
   created_at: string;
 }
@@ -61,6 +65,7 @@ interface ConversationItem {
 const ChatPage = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { settings: featureSettings } = useFeatureSettings();
   const [currentUserId, setCurrentUserId] = useState("");
   const [users, setUsers] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -75,6 +80,7 @@ const ChatPage = () => {
   const { startCall } = useCall();
   const inputRef = useRef<HTMLInputElement>(null);
   const currentUserIdRef = useRef("");
+  const [sendingImage, setSendingImage] = useState(false);
 
   // Group chat state
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -186,6 +192,30 @@ const ChatPage = () => {
     if (!content || !selectedUser || !currentUserId) return;
     if (!overrideContent) setNewMessage("");
     await supabase.from("messages").insert({ sender_id: currentUserId, receiver_id: selectedUser.user_id, content });
+  };
+
+  const sendImageMessage = async (file: File) => {
+    if (!selectedUser || !currentUserId) return;
+    setSendingImage(true);
+    try {
+      const compressed = await compressImage(file);
+      const path = `chat/${currentUserId}/${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from("media").upload(path, compressed, { contentType: "image/jpeg" });
+      if (error) throw error;
+      const { data } = supabase.storage.from("media").getPublicUrl(path);
+      await supabase.from("messages").insert({ sender_id: currentUserId, receiver_id: selectedUser.user_id, content: "📷 ছবি", image_url: data.publicUrl });
+    } catch {
+      toast.error("ছবি পাঠানো ব্যর্থ!");
+    }
+    setSendingImage(false);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("ছবি 10MB এর বেশি!"); return; }
+    sendImageMessage(file);
+    e.target.value = "";
   };
 
   const formatTime = (dateStr: string) => {
@@ -653,7 +683,8 @@ const ChatPage = () => {
                               ? 'bg-primary text-primary-foreground shadow-sm'
                               : 'bg-secondary text-foreground'
                           }`}>
-                            <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                            <p className="whitespace-pre-wrap break-words">{m.content !== "📷 ছবি" ? m.content : ""}</p>
+                            {m.image_url && <img src={m.image_url} alt="ছবি" className="mt-1 rounded-lg max-w-[250px] max-h-[200px] object-cover cursor-pointer" loading="lazy" onClick={() => window.open(m.image_url!, '_blank')} />}
                           </div>
                           <div className={`absolute top-1/2 -translate-y-1/2 ${isMine ? 'right-full mr-2' : 'left-full ml-2'} opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap`}>
                             <span className="text-[11px] text-muted-foreground bg-card border border-border px-2 py-1 rounded-lg shadow-sm">
@@ -676,9 +707,12 @@ const ChatPage = () => {
               {/* Input - Desktop */}
               <div className="px-5 py-3 bg-card border-t border-border shrink-0">
                 <div className="flex items-center gap-3">
-                  <button className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition-colors text-primary text-lg shrink-0">
-                    ➕
-                  </button>
+                  {featureSettings.feature_chat_images && (
+                    <label className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition-colors text-primary text-lg shrink-0 cursor-pointer">
+                      {sendingImage ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} disabled={sendingImage} />
+                    </label>
+                  )}
                   <div className="flex-1 relative">
                     <input
                       ref={inputRef}
@@ -1052,7 +1086,8 @@ const ChatPage = () => {
                           ? 'bg-primary text-primary-foreground rounded-[20px] rounded-br-[5px]'
                           : 'bg-secondary text-foreground rounded-[20px] rounded-bl-[5px]'
                       }`}>
-                        <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                        <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content !== "📷 ছবি" ? m.content : ""}</p>
+                        {m.image_url && <img src={m.image_url} alt="ছবি" className="mt-1 rounded-lg max-w-[200px] max-h-[180px] object-cover" loading="lazy" onClick={() => window.open(m.image_url!, '_blank')} />}
                       </div>
                       <div className={`flex items-center gap-1 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'} opacity-0 group-hover:opacity-100 transition-opacity`}>
                         <span className="text-[10px] text-muted-foreground">{formatMsgTime(m.created_at)}</span>
@@ -1068,6 +1103,12 @@ const ChatPage = () => {
 
           <div className="border-t border-border bg-card px-3 py-2">
             <div className="flex items-center gap-2">
+              {featureSettings.feature_chat_images && (
+                <label className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition text-primary shrink-0 cursor-pointer">
+                  {sendingImage ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} disabled={sendingImage} />
+                </label>
+              )}
               <div className="flex-1 relative">
                 <input ref={inputRef} type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
