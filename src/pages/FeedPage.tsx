@@ -105,6 +105,7 @@ const detectCategory = (content: string): string => {
 
 const FeedPage = () => {
   const navigate = useNavigate();
+  const { settings: featureSettings } = useFeatureSettings();
   const [currentUserId, setCurrentUserId] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostContent, setNewPostContent] = useState("");
@@ -129,6 +130,13 @@ const FeedPage = () => {
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
   const [spamWords, setSpamWords] = useState<string[]>([]);
   const [spamBanStatus, setSpamBanStatus] = useState<{ banned: boolean; permanent: boolean; banUntil: string | null }>({ banned: false, permanent: false, banUntil: null });
+  
+  // Image upload states
+  const [postImage, setPostImage] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
+  const [commentImages, setCommentImages] = useState<Record<string, File | null>>({});
+  const [commentImagePreviews, setCommentImagePreviews] = useState<Record<string, string | null>>({});
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Init
   useEffect(() => {
