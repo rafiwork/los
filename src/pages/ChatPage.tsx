@@ -1086,7 +1086,8 @@ const ChatPage = () => {
                           ? 'bg-primary text-primary-foreground rounded-[20px] rounded-br-[5px]'
                           : 'bg-secondary text-foreground rounded-[20px] rounded-bl-[5px]'
                       }`}>
-                        <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
+                        <p className="whitespace-pre-wrap break-words leading-relaxed">{m.content !== "📷 ছবি" ? m.content : ""}</p>
+                        {m.image_url && <img src={m.image_url} alt="ছবি" className="mt-1 rounded-lg max-w-[200px] max-h-[180px] object-cover" loading="lazy" onClick={() => window.open(m.image_url!, '_blank')} />}
                       </div>
                       <div className={`flex items-center gap-1 mt-0.5 ${isMine ? 'justify-end' : 'justify-start'} opacity-0 group-hover:opacity-100 transition-opacity`}>
                         <span className="text-[10px] text-muted-foreground">{formatMsgTime(m.created_at)}</span>
