@@ -1103,6 +1103,12 @@ const ChatPage = () => {
 
           <div className="border-t border-border bg-card px-3 py-2">
             <div className="flex items-center gap-2">
+              {featureSettings.feature_chat_images && (
+                <label className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-secondary transition text-primary shrink-0 cursor-pointer">
+                  {sendingImage ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} disabled={sendingImage} />
+                </label>
+              )}
               <div className="flex-1 relative">
                 <input ref={inputRef} type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
