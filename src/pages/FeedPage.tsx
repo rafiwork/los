@@ -7,14 +7,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { bn } from "date-fns/locale";
 import { getMyStatus } from "@/lib/adminStore";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, Settings, ImagePlus, X, Loader2 } from "lucide-react";
 import UserProfileDialog from "@/components/chat/UserProfileDialog";
 import FeedNotifications from "@/components/feed/FeedNotifications";
 import FriendList from "@/components/feed/FriendList";
 import FeedSettingsModal from "@/components/feed/FeedSettingsModal";
 import LinkPreview from "@/components/feed/LinkPreview";
-import { Settings } from "lucide-react";
+import StoriesBar from "@/components/feed/StoriesBar";
 import { loadSpamWords, checkSpam, recordViolation, isSpamBanned } from "@/lib/spamChecker";
+import { compressImage } from "@/lib/imageCompress";
+import { useFeatureSettings } from "@/hooks/useFeatureSettings";
 import { toast } from "sonner";
 
 interface PostProfile {
