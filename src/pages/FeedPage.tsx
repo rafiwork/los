@@ -838,9 +838,16 @@ const FeedPage = () => {
 
                 {/* Post Content */}
                 <div className="px-3 sm:px-4 pb-3">
-                  <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed overflow-hidden">{post.content}</p>
+                  <p className="text-sm text-foreground font-semibold whitespace-pre-wrap break-words leading-relaxed overflow-hidden">{post.content !== "📷" ? post.content : ""}</p>
                   <LinkPreview content={post.content} />
                 </div>
+
+                {/* Post Image */}
+                {post.image_url && (
+                  <div className="px-0">
+                    <img src={post.image_url} alt="পোস্ট ছবি" className="w-full max-h-[500px] object-cover" loading="lazy" />
+                  </div>
+                )}
 
                 {/* Reaction Stats */}
                 {(post.likes_count > 0 || post.comments_count > 0) && (
