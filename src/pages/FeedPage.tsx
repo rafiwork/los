@@ -1010,7 +1010,8 @@ const FeedPage = () => {
                                       <div className="flex-1 min-w-0">
                                         <div className="bg-card border border-border rounded-lg px-2.5 py-1.5">
                                           <p className="text-[10px] font-black text-foreground">{profiles[reply.user_id]?.name || "অজানা"}</p>
-                                          <p className="text-[11px] text-foreground font-semibold break-words">{reply.content}</p>
+                                          {reply.content !== "📷" && <p className="text-[11px] text-foreground font-semibold break-words">{reply.content}</p>}
+                                          {reply.image_url && <img src={reply.image_url} alt="" className="mt-1 rounded-md max-h-28 object-cover" loading="lazy" />}
                                         </div>
                                         <div className="flex items-center gap-3 mt-0.5 px-1">
                                           <span className="text-[9px] text-muted-foreground">{timeAgo(reply.created_at)}</span>
