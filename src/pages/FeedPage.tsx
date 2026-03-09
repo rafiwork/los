@@ -34,6 +34,7 @@ interface Comment {
   content: string;
   parent_id: string | null;
   created_at: string;
+  image_url?: string | null;
   profile?: PostProfile;
   likes_count: number;
   liked_by_me: boolean;
