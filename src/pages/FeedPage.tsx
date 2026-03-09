@@ -340,35 +340,59 @@ const FeedPage = () => {
     }
   };
 
+  // Upload image helper
+  const uploadImage = async (file: File, folder: string): Promise<string | null> => {
+    try {
+      const compressed = await compressImage(file);
+      const path = `${folder}/${currentUserId}/${Date.now()}.jpg`;
+      const { error } = await supabase.storage.from("media").upload(path, compressed, { contentType: "image/jpeg" });
+      if (error) throw error;
+      const { data } = supabase.storage.from("media").getPublicUrl(path);
+      return data.publicUrl;
+    } catch {
+      toast.error("ছবি আপলোড ব্যর্থ!");
+      return null;
+    }
+  };
+
   // Create post
   const createPost = async () => {
-    if (!newPostContent.trim() || !currentUserId) return;
+    if ((!newPostContent.trim() && !postImage) || !currentUserId) return;
     // Check spam ban
     if (spamBanStatus.banned) {
       toast.error(spamBanStatus.permanent ? "আপনার পোস্ট করার অধিকার স্থায়ীভাবে বন্ধ।" : `আপনি ${new Date(spamBanStatus.banUntil!).toLocaleDateString('bn-BD')} পর্যন্ত পোস্ট করতে পারবেন না।`);
       return;
     }
     // Check spam words
-    const matched = checkSpam(newPostContent, spamWords);
-    if (matched) {
-      const result = await recordViolation(currentUserId, matched, "post");
-      if (result.banned) {
-        setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
-        toast.error(result.permanent ? "স্প্যামের কারণে আপনার পোস্ট করা স্থায়ীভাবে বন্ধ হয়েছে!" : `স্প্যামের কারণে ${result.banDays} দিনের জন্য পোস্ট/কমেন্ট বন্ধ!`);
-      } else {
-        toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড! সতর্ক থাকুন।`);
+    if (newPostContent.trim()) {
+      const matched = checkSpam(newPostContent, spamWords);
+      if (matched) {
+        const result = await recordViolation(currentUserId, matched, "post");
+        if (result.banned) {
+          setSpamBanStatus({ banned: true, permanent: result.permanent, banUntil: result.permanent ? null : new Date(Date.now() + result.banDays * 86400000).toISOString() });
+          toast.error(result.permanent ? "স্প্যামের কারণে আপনার পোস্ট করা স্থায়ীভাবে বন্ধ হয়েছে!" : `স্প্যামের কারণে ${result.banDays} দিনের জন্য পোস্ট/কমেন্ট বন্ধ!`);
+        } else {
+          toast.warning(`⚠️ "${matched}" স্প্যাম ওয়ার্ড! সতর্ক থাকুন।`);
+        }
+        return;
       }
-      return;
     }
     setPosting(true);
+    let imageUrl: string | null = null;
+    if (postImage) {
+      imageUrl = await uploadImage(postImage, "posts");
+    }
     const autoCategory = detectCategory(newPostContent);
     await supabase.from("posts").insert({
       user_id: currentUserId,
-      content: newPostContent.trim(),
+      content: newPostContent.trim() || "📷",
       category: autoCategory,
+      image_url: imageUrl,
     });
     trackInterest(autoCategory);
     setNewPostContent("");
+    setPostImage(null);
+    setPostImagePreview(null);
     setPosting(false);
   };
 
