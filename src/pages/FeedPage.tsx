@@ -721,6 +721,18 @@ const FeedPage = () => {
               rows={2}
             />
           </div>
+          {/* Post Image Preview */}
+          {postImagePreview && (
+            <div className="px-3 pb-2 relative">
+              <img src={postImagePreview} alt="প্রিভিউ" className="w-full max-h-60 object-cover rounded-xl border border-border" />
+              <button
+                onClick={() => { setPostImage(null); setPostImagePreview(null); }}
+                className="absolute top-2 right-5 w-7 h-7 rounded-full bg-foreground/60 text-background flex items-center justify-center hover:bg-foreground/80 transition"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
           {newPostContent.trim() && (
             <div className="px-3 pb-1">
               <span className="text-[10px] text-muted-foreground bg-secondary/60 rounded-full px-2 py-0.5 font-bold">
@@ -732,13 +744,28 @@ const FeedPage = () => {
               </span>
             </div>
           )}
-          <div className="border-t border-border px-3 py-2 flex justify-end">
+          <div className="border-t border-border px-3 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {featureSettings.feature_post_images && (
+                <label className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-secondary cursor-pointer transition text-primary">
+                  <ImagePlus size={18} />
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 10 * 1024 * 1024) { toast.error("ছবি 10MB এর বেশি!"); return; }
+                    setPostImage(file);
+                    setPostImagePreview(URL.createObjectURL(file));
+                  }} />
+                </label>
+              )}
+            </div>
             <button
               onClick={createPost}
-              disabled={!newPostContent.trim() || posting}
-              className="bg-primary text-primary-foreground px-5 py-1.5 rounded-full text-xs font-black hover:opacity-90 transition active:scale-95 disabled:opacity-50"
+              disabled={(!newPostContent.trim() && !postImage) || posting}
+              className="bg-primary text-primary-foreground px-5 py-1.5 rounded-full text-xs font-black hover:opacity-90 transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
             >
-              {posting ? "..." : "পোস্ট করুন"}
+              {posting ? <Loader2 size={14} className="animate-spin" /> : null}
+              {posting ? "পোস্ট হচ্ছে..." : "পোস্ট করুন"}
             </button>
           </div>
         </div>
